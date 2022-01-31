@@ -1,0 +1,226 @@
+#!/usr/bin/env bash
+
+set -e
+# set -x
+
+# colors
+declare red="\e[1;31m"
+declare yellow="\e[1;33m"
+declare cyan="\e[1;36m"
+declare reset="\e[0m"
+
+# constants
+
+declare -r ZET="$HOME/github.com/zet"
+declare -r FLEET="$ZET/fleet"
+declare -r PERMANENT="$ZET/permanent"
+
+# TODO:
+# [x] new
+# [x] query
+# [x] query.fleet
+# [ ] list
+# [ ] list.fleet
+# [ ] list.perm
+# [ ] permanent
+# [ ] link
+# [ ] edit
+# [ ] edit.prev
+# [x] rename
+
+x.help() {
+  printf "
+A personal zettelkasten program
+
+Commands:
+  help             Show help commands
+  new              Create a new zettel by giving it a title
+  query            Queries the zettels with Regex, you can filter by tags
+  query.fleet      Queries the zettels with Regex, you can filter by tags
+  list             Queries the zettels with Regex, you can filter by tags
+  list.fleet       Queries the zettels with Regex, you can filter by tags
+  permanent        Queries the zettels with Regex, you can filter by tags
+  link             Links two zettels <id1> <id2>
+  edit             Links two zettels <id1> <id2>
+  edit.prev        Links two zettels <id1> <id2>
+  rename           Renames the current zet from the '# title'
+"
+}
+
+x.new() {
+  local title="$*"
+
+  slug="$(echo "$title" | slugify)"
+  file="$slug.$(isosec).md"
+
+  if [[ -z "$file" ]] || [[ -z "$title" ]]; then
+    echo "failed to create the zettel: invalid arguments"
+    exit 1
+  fi
+
+  # change path to the fleet notes
+  cd "$FLEET"
+
+  tee "$file" <<EOF >/dev/null
+# $title
+
+
+
+## Bibliography
+
+## Links
+
+EOF
+  nvr +3 "$file"
+}
+
+# Queries the permanent directory
+x.query() {
+  cd "$PERMANENT"
+
+  INITIAL_QUERY=""
+
+  tmpDir="/tmp/.zet_query"
+
+  # clean-up temporary dir
+  rm -rf "$tmpDir"
+  mkdir -p "$tmpDir"
+
+  # remove codeblocks
+  rg -li "$INITIAL_QUERY" | xargs -I{} cp {} "$tmpDir"
+  rg -li "$INITIAL_QUERY" | xargs -I{} sed -i '' -e '/^```/,/^```/d' {}
+
+  cd "$tmpDir"
+
+  INITIAL_QUERY="${*:-}"
+  FIRST_SEARCH="rg --column --line-number --no-heading --color=always --ignore-case "
+  IFS=: read -ra selected < <(
+    eval "$FIRST_SEARCH $(printf %q "$INITIAL_QUERY")" |
+      fzf --ansi \
+        --multi \
+        --query "" \
+        --delimiter : \
+        --preview 'bat --theme=OneHalfDark --color=always {1} --highlight-line {2}'
+  )
+
+  zettel=$(basename "${selected[0]}")
+
+  # change path to permanent folder
+  cd "$PERMANENT"
+
+  [ -n "${selected[0]}" ] && nvim "$PERMANENT/$zettel" "+${selected[1]}"
+}
+
+x.query.fleet() {
+  cd "$FLEET"
+
+  INITIAL_QUERY=""
+
+  tmpDir="/tmp/.zet_query"
+
+  # clean-up temporary dir
+  rm -rf "$tmpDir"
+  mkdir -p "$tmpDir"
+
+  # remove codeblocks
+  rg -li "$INITIAL_QUERY" | xargs -I{} cp {} "$tmpDir"
+  rg -li "$INITIAL_QUERY" | xargs -I{} sed -i '' -e '/^```/,/^```/d' {}
+
+  cd "$tmpDir"
+
+  INITIAL_QUERY="${*:-}"
+  FIRST_SEARCH="rg --column --line-number --no-heading --color=always --ignore-case "
+  IFS=: read -ra selected < <(
+    eval "$FIRST_SEARCH $(printf %q "$INITIAL_QUERY")" |
+      fzf --ansi \
+        --multi \
+        --query "" \
+        --delimiter : \
+        --preview 'bat --theme=OneHalfDark --color=always {1} --highlight-line {2}'
+  )
+
+  zettel=$(basename "${selected[0]}")
+
+  # change path to permanent folder
+  cd "$FLEET"
+
+  [ -n "$zettel" ] && nvim "$zettel" "+${selected[1]}"
+}
+
+x.rename() {
+  local oldFile="$1"
+
+  if [[ ! -f "$oldFile" ]]; then
+    echo "The given file was not valid."
+    exit 1
+  fi
+
+  title=$(
+    head -n 1 "$oldFile" |
+      sed "s/# //" | slugify
+  )
+  fileId="$(basename "$oldFile" | cut -d '.' -f 2)"
+  newFile="${title}.${fileId}.md"
+
+  # create the new file, and delete the old one
+  oldFilePath="$(realpath "$(dirname "$oldFile")")/$(basename "$oldFile")"
+  newFilePath="$(realpath "$(dirname "$oldFile")")/$newFile"
+
+  cat "$oldFilePath" >"$newFilePath"
+  rm "$oldFilePath"
+}
+
+# --------------------- utility ---------------------
+
+# --------------------- aliases ---------------------
+
+_aliases() {
+  alias="$1"
+  shift
+
+  case $alias in
+  "q")
+    "x.query" "$@"
+    exit $?
+    ;;
+  "qf")
+    "x.query.fleet" "$@"
+    exit $?
+    ;;
+  esac
+}
+
+# --------------------- completion ---------------------
+
+while IFS= read -r line; do
+  [[ $line =~ ^declare\ -f\ x\. ]] || continue
+  COMMANDS+=("${line##declare -f x.}")
+done < <(declare -F)
+
+mapfile -t COMMANDS < \
+  <(LC_COLLATE=C sort < <(printf "%s\n" "${COMMANDS[@]}"))
+
+if [[ -n $COMP_LINE ]]; then
+  line=${COMP_LINE#* }
+
+  for c in "${COMMANDS[@]}"; do
+    [[ ${c:0:${#line}} == "${line,,}" ]] && echo "$c"
+  done
+  exit
+fi
+
+if [[ -n "$1" ]]; then
+  declare CMD="$1"
+  shift
+
+  _aliases "$CMD"
+
+  for c in "${COMMANDS[@]}"; do
+    if [[ $c == "$CMD" ]]; then
+      "x.$CMD" "$@"
+      exit $?
+    fi
+  done
+fi
+
+x.help
