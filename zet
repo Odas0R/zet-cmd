@@ -74,6 +74,62 @@ EOF
   nvr +3 "$file"
 }
 
+x.link() {
+  declare keyword="$1"
+  declare counter=1
+  declare -A ids
+
+  cd "$ZET"
+
+  counter=1
+  while IFS="/" read -ra zettel; do
+    type="${zettel[0]}"
+    file="${zettel[1]}"
+
+    filePath="$type/$file"
+
+    title=$(head -n 1 "$filePath")
+    fileId="$(basename "$filePath" | cut -d '.' -f 2)"
+
+    echo -e "$counter) $fileId $yellow$title$reset"
+
+    ids["$counter"]=$file
+
+    ((counter++))
+  done < <(
+    rg -l --ignore-case -m1 -w "$keyword" "permanent" "fleet"
+  )
+
+  read -r -p "Enter the zettels you want to link: " z1 z2
+
+  fileOne=${ids["$z1"]}
+  fileTwo=${ids["$z2"]}
+
+  if [[ "$fileOne" == "$fileTwo" ]]; then
+    echo "You can't link the same file."
+    exit 1
+  fi
+
+  fileTwoTitle="$(head -n 1 "$fileTwo")"
+  fileTwoLink="* [${fileTwoTitle### }](./${fileTwo})"
+
+  # add a \n if 'Links' is in the last line
+  if [[ "$(tail -1 "$fileOne")" =~ "Links" ]]; then
+    echo >>"$fileOne"
+  fi
+
+  # Add the link
+  echo "$fileTwoLink" >>"$fileOne"
+}
+
+# show all the previous files opened by querying + edit
+# if no args
+#
+# if args find a file by that Id and open it
+x.edit() {
+  :
+}
+
 # Queries the permanent directory
 x.query() {
   cd "$PERMANENT"
@@ -129,7 +185,7 @@ x.query.fleet() {
   cd "$tmpDir"
 
   INITIAL_QUERY="${*:-}"
-  FIRST_SEARCH="rg --column --line-number --no-heading --color=always --ignore-case "
+  FIRST_SEARCH="rg --column --line-number --no-heading --color=always --smart-case --trim"
   IFS=: read -ra selected < <(
     eval "$FIRST_SEARCH $(printf %q "$INITIAL_QUERY")" |
       fzf --ansi \
@@ -147,6 +203,7 @@ x.query.fleet() {
   [ -n "$zettel" ] && nvim "$zettel" "+${selected[1]}"
 }
 
+# TODO: Rename links as well
 x.rename() {
   local oldFile="$1"
 
