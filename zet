@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 set -e
-# set -x
 
 # colors
 declare red="\e[1;31m"
@@ -26,7 +25,10 @@ declare -r PERMANENT="$ZET/permanent"
 # [ ] link
 # [ ] edit
 # [ ] edit.prev
-# [x] rename
+# [ ] ui (starts a server on bg so that you can preview your notes)
+# [ ] ui <file> (opens the current note on the browser)
+# [ ] remove
+# [ ] rename
 
 x.help() {
   printf "
@@ -43,11 +45,14 @@ Commands:
   link             Links two zettels <id1> <id2>
   edit             Links two zettels <id1> <id2>
   edit.prev        Links two zettels <id1> <id2>
+  ui               Starts a server on bg so that you can preview your notes
+  ui <file>        Opens the current note on the ui server
   rename           Renames the current zet from the '# title'
 "
 }
 
 x.new() {
+  local ZETTEL_TEMPLATE="$ZET/.templates/zettel.tmpl.md"
   local title="$*"
 
   slug="$(echo "$title" | slugify)"
@@ -61,17 +66,11 @@ x.new() {
   # change path to the fleet notes
   cd "$FLEET"
 
-  tee "$file" <<EOF >/dev/null
-# $title
+  # create a new zettel using the `tmpl` script
+  export title
+  tmpl "$ZETTEL_TEMPLATE" >"$file"
 
-
-
-## Bibliography
-
-## Links
-
-EOF
-  nvr +3 "$file"
+  nvr -s -l +3 "$file"
 }
 
 x.link() {
@@ -130,77 +129,12 @@ x.edit() {
   :
 }
 
-# Queries the permanent directory
 x.query() {
-  cd "$PERMANENT"
-
-  INITIAL_QUERY=""
-
-  tmpDir="/tmp/.zet_query"
-
-  # clean-up temporary dir
-  rm -rf "$tmpDir"
-  mkdir -p "$tmpDir"
-
-  # remove codeblocks
-  rg -li "$INITIAL_QUERY" | xargs -I{} cp {} "$tmpDir"
-  rg -li "$INITIAL_QUERY" | xargs -I{} sed -i '' -e '/^```/,/^```/d' {}
-
-  cd "$tmpDir"
-
-  INITIAL_QUERY="${*:-}"
-  FIRST_SEARCH="rg --column --line-number --no-heading --color=always --ignore-case "
-  IFS=: read -ra selected < <(
-    eval "$FIRST_SEARCH $(printf %q "$INITIAL_QUERY")" |
-      fzf --ansi \
-        --multi \
-        --query "" \
-        --delimiter : \
-        --preview 'bat --theme=OneHalfDark --color=always {1} --highlight-line {2}'
-  )
-
-  zettel=$(basename "${selected[0]}")
-
-  # change path to permanent folder
-  cd "$PERMANENT"
-
-  [ -n "${selected[0]}" ] && nvim "$PERMANENT/$zettel" "+${selected[1]}"
+  nvr -s -l -c "cd $PERMANENT | lua require('odas0r.telescope').search_zet_permanent()"
 }
 
 x.query.fleet() {
-  cd "$FLEET"
-
-  INITIAL_QUERY=""
-
-  tmpDir="/tmp/.zet_query"
-
-  # clean-up temporary dir
-  rm -rf "$tmpDir"
-  mkdir -p "$tmpDir"
-
-  # remove codeblocks
-  rg -li "$INITIAL_QUERY" | xargs -I{} cp {} "$tmpDir"
-  rg -li "$INITIAL_QUERY" | xargs -I{} sed -i '' -e '/^```/,/^```/d' {}
-
-  cd "$tmpDir"
-
-  INITIAL_QUERY="${*:-}"
-  FIRST_SEARCH="rg --column --line-number --no-heading --color=always --smart-case --trim"
-  IFS=: read -ra selected < <(
-    eval "$FIRST_SEARCH $(printf %q "$INITIAL_QUERY")" |
-      fzf --ansi \
-        --multi \
-        --query "" \
-        --delimiter : \
-        --preview 'bat --theme=OneHalfDark --color=always {1} --highlight-line {2}'
-  )
-
-  zettel=$(basename "${selected[0]}")
-
-  # change path to permanent folder
-  cd "$FLEET"
-
-  [ -n "$zettel" ] && nvim "$zettel" "+${selected[1]}"
+  nvr -s -l -c "cd $FLEET | lua require('odas0r.telescope').search_zet_fleet()"
 }
 
 # TODO: Rename links as well
@@ -219,12 +153,17 @@ x.rename() {
   fileId="$(basename "$oldFile" | cut -d '.' -f 2)"
   newFile="${title}.${fileId}.md"
 
-  # create the new file, and delete the old one
   oldFilePath="$(realpath "$(dirname "$oldFile")")/$(basename "$oldFile")"
   newFilePath="$(realpath "$(dirname "$oldFile")")/$newFile"
 
+  # create the new file
   cat "$oldFilePath" >"$newFilePath"
+  # delete the old file
   rm "$oldFilePath"
+
+  # rename all links
+
+  tmux new-window -d nvr "$newFilePath"
 }
 
 # --------------------- utility ---------------------
