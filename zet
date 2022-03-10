@@ -11,55 +11,69 @@ declare reset="\e[0m"
 # constants
 
 declare -r ZET="$HOME/github.com/zet"
+# switch for testing
+# declare -r ZET="$HOME/github.com/zet-cmd/.zet"
 declare -r FLEET="$ZET/fleet"
 declare -r PERMANENT="$ZET/permanent"
+declare -r HISTORY="$ZET/.history"
+declare -r TEMPLATES="$ZET/.templates"
 
 # TODO:
-# [x] new
-# [x] query
-# [x] query.fleet
-# [ ] list
-# [ ] list.fleet
-# [ ] list.perm
-# [ ] permanent
-# [ ] link
-# [ ] edit
-# [ ] edit.prev
+#
 # [ ] ui (starts a server on bg so that you can preview your notes)
 # [ ] ui <file> (opens the current note on the browser)
-# [ ] remove
-# [ ] rename
+# [ ] status
+
+# IDEAS:
+#
+# [ ] journal         displays every journal created with the
+#                     description of the day (and can select one to
+#                     open like `zet edit`)
+#
+# [ ] journal.today   opens the today journal file
+#
+# [ ] journal.prev    opens the yesterday journal file
+#
+# [ ] goals           opens the goals file
+#
+# [ ] tmpl            displays all templates and select one to open
+#                     with the default editor
+#
+# [ ] tmpl.new        creates a new template by giving the name
 
 x.help() {
-  printf "
+  printf '
 A personal zettelkasten program
 
-Commands:
-  help             Show help commands
-  new              Create a new zettel by giving it a title
-  query            Queries the zettels with Regex, you can filter by tags
-  query.fleet      Queries the zettels with Regex, you can filter by tags
-  list             Queries the zettels with Regex, you can filter by tags
-  list.fleet       Queries the zettels with Regex, you can filter by tags
-  permanent        Queries the zettels with Regex, you can filter by tags
-  link             Links two zettels <id1> <id2>
-  edit             Links two zettels <id1> <id2>
-  edit.prev        Links two zettels <id1> <id2>
-  ui               Starts a server on bg so that you can preview your notes
-  ui <file>        Opens the current note on the ui server
-  rename           Renames the current zet from the '# title'
-"
+Commands:        Alias  
+  help                   Show help commands
+  new             <n>    Create a new zettel by giving it a title
+  query           <q>    Queries the all zettels with a full-text search panel
+  query.fleet     <qf>   Queries the fleet zettels with a full-text search panel
+  permanent       <p>    Transforms a fleet zettel into a permanent one
+  link            <l>    Links two zettels by showing the history or giving the 
+                         ids directly.
+  edit            <e>    Edits a zettel by picking one from the history
+  edit.prev       <ep>   Edits the last opened zettel
+  ui                     Starts a server on bg so that you can preview your notes on a UI
+  ui <file>              Opens the current note on the ui server
+  fix             <f>    Renames the current zet from the # title
+  history         <f>    Shows the history of the opened zettels
+  history.insert  <f>    Inserts the zettel into the history log file
+  history.edit    <f>    Opens the editor on the history log file
+  status          <s>    Pretty print your progress on `goals` and journal
+'
 }
 
 x.new() {
-  local ZETTEL_TEMPLATE="$ZET/.templates/zettel.tmpl.md"
+  local ZETTEL_TEMPLATE="$TEMPLATES/zettel.tmpl.md"
   local title="$*"
 
-  slug="$(echo "$title" | slugify)"
+  slug="$(echo "${title//\`/}" | slugify)"
   file="$slug.$(isosec).md"
 
   if [[ -z "$file" ]] || [[ -z "$title" ]]; then
-    echo "failed to create the zettel: invalid arguments"
+    echo -e "\nError: invalid arguments"
     exit 1
   fi
 
@@ -73,52 +87,73 @@ x.new() {
   nvr -s -l +3 "$file"
 }
 
+# Links two files.
+#
+# To understand the context of "linking":
+#
+# > On which note/context (file_one) would I like to find this current
+# > note (file_two)?
 x.link() {
-  declare keyword="$1"
-  declare counter=1
   declare -A ids
 
   cd "$ZET"
 
-  counter=1
+  local counter=1
   while IFS="/" read -ra zettel; do
     type="${zettel[0]}"
     file="${zettel[1]}"
 
-    filePath="$type/$file"
+    filePath="$ZET/$type/$file"
 
     title=$(head -n 1 "$filePath")
     fileId="$(basename "$filePath" | cut -d '.' -f 2)"
 
-    echo -e "$counter) $fileId $yellow$title$reset"
+    echo -e "$counter) $fileId $yellow$title$reset [${type}]"
 
-    ids["$counter"]=$file
+    ids["$counter"]=$filePath
 
     ((counter++))
-  done < <(
-    rg -l --ignore-case -m1 -w "$keyword" "permanent" "fleet"
-  )
+  done < <(tail -n30 "$HISTORY")
 
   read -r -p "Enter the zettels you want to link: " z1 z2
 
-  fileOne=${ids["$z1"]}
-  fileTwo=${ids["$z2"]}
+  fileOnePath=${ids["$z1"]}
+  fileTwoPath=${ids["$z2"]}
 
-  if [[ "$fileOne" == "$fileTwo" ]]; then
-    echo "You can't link the same file."
+  if [[ -z "$fileOnePath" ]] || [[ -z "$fileTwoPath" ]]; then
+    echo -e "\nError: file(s) doesn't exist"
     exit 1
   fi
 
-  fileTwoTitle="$(head -n 1 "$fileTwo")"
-  fileTwoLink="* [${fileTwoTitle### }](./${fileTwo})"
+  if [[ "$fileOnePath" == "$fileTwoPath" ]]; then
+    echo -e "\nError: you can't link the same file."
+    exit 1
+  fi
+
+  fileOneTitle="$(head -n 1 "$fileOnePath")"
+  fileOneLink="* [${fileOneTitle}](${fileOnePath})"
+
+  # check if the link already exists
+  fileOneID="$(basename "$fileOnePath" | cut -d '.' -f 2)"
+  if grep -q "$fileOneID" "$fileTwoPath"; then
+    echo -e "\nError: link already exists!"
+    exit 1
+  fi
 
   # add a \n if 'Links' is in the last line
-  if [[ "$(tail -1 "$fileOne")" =~ "Links" ]]; then
-    echo >>"$fileOne"
+  if [[ "$(tail -1 "$fileOnePath")" =~ "Links" ]]; then
+    echo >>"$fileTwoPath"
   fi
 
   # Add the link
-  echo "$fileTwoLink" >>"$fileOne"
+  echo "$fileOneLink" >>"$fileTwoPath"
+
+  printf '
+┌──▷ %s
+│   
+└─── %s
+
+' "$fileOnePath" "$fileTwoPath"
 }
 
 # show all the previous files opened by querying + edit
@@ -126,47 +161,238 @@ x.link() {
 #
 # if args find a file by that Id and open it
 x.edit() {
-  :
-}
+  declare -A ids
 
-x.query() {
-  nvr -s -l -c "cd $PERMANENT | lua require('odas0r.telescope').search_zet_permanent()"
-}
+  cd "$ZET"
 
-x.query.fleet() {
-  nvr -s -l -c "cd $FLEET | lua require('odas0r.telescope').search_zet_fleet()"
-}
+  local counter=1
+  while IFS="/" read -ra zettel; do
+    type="${zettel[0]}"
+    file="${zettel[1]}"
 
-# TODO: Rename links as well
-x.rename() {
-  local oldFile="$1"
+    filePath="$ZET/$type/$file"
 
-  if [[ ! -f "$oldFile" ]]; then
-    echo "The given file was not valid."
+    title=$(head -n 1 "$filePath")
+    fileId="$(basename "$filePath" | cut -d '.' -f 2)"
+
+    echo -e "$counter) $fileId $yellow$title$reset"
+
+    ids["$counter"]=$filePath
+
+    ((counter++))
+  done < <(tail -n30 "$HISTORY")
+
+  read -r -p "Which file do you want to edit?: " z1
+
+  filePath=${ids["$z1"]}
+
+  if [[ -z "$filePath" ]]; then
+    echo -e "\nError: file doesn't exist"
     exit 1
   fi
 
-  title=$(
-    head -n 1 "$oldFile" |
-      sed "s/# //" | slugify
+  nvr -s -l "$filePath"
+}
+
+x.edit.prev() {
+  file=$(tail -1 "$HISTORY")
+
+  cd "$ZET"
+
+  nvr -s -l "$file"
+}
+
+x.permanent() {
+  local file="$1"
+
+  fileName="$(basename "$file")"
+
+  # check if file is a zettel
+  _is_zettel "$file"
+
+  if [[ -f "$PERMANENT/$fileName" ]]; then
+    echo -e "\nError: zettel already is permanent"
+    exit 1
+  fi
+
+  # move the file under /permanent
+  mv "$FLEET/$fileName" "$PERMANENT/$fileName"
+
+  # replace all the links with the old file path with the new one
+  x.fix "$PERMANENT/$fileName"
+
+  # open the new file
+  tmux new-window -d nvr "$PERMANENT/$fileName"
+}
+
+x.remove() {
+  local file="$1"
+
+  # check if file is a zettel
+  _is_zettel "$file"
+
+  zettelID="$(basename "$file" | cut -d '.' -f 2)"
+
+  rm "$file"
+
+  cd "$ZET"
+
+  # remove old links
+  while IFS=":" read -ra lines; do
+    file="${lines[0]}"
+    gsed -i "/$zettelID/d" "$file"
+  done < <(
+    rg '^.*'"$zettelID"'.*$' "$FLEET" "$PERMANENT"
   )
-  fileId="$(basename "$oldFile" | cut -d '.' -f 2)"
-  newFile="${title}.${fileId}.md"
 
-  oldFilePath="$(realpath "$(dirname "$oldFile")")/$(basename "$oldFile")"
-  newFilePath="$(realpath "$(dirname "$oldFile")")/$newFile"
+  # clear the file from the history
+  gsed -i "/$zettelID/d" "$HISTORY"
+}
 
-  # create the new file
-  cat "$oldFilePath" >"$newFilePath"
-  # delete the old file
-  rm "$oldFilePath"
+x.query() {
+  cd "$PERMANENT"
+  nvr -s -l -c "Telescope live_grep"
+}
 
-  # rename all links
+x.query.fleet() {
+  cd "$FLEET"
+  nvr -s -l -c "Telescope live_grep"
+}
 
-  tmux new-window -d nvr "$newFilePath"
+# Fix a zettel
+#
+# 1. Fix the current file basename regarding the # title
+# 2. Fix all the link title and path associated with the current opened
+#    zettel
+x.fix() {
+  local fileToFix="$1"
+
+  fileName=$(basename "$fileToFix")
+  type=$(dirname "$(realpath "$fileToFix")")
+  type="${type##*/}"
+
+  # check if file is existent under fleet/ and permanent/
+  if [[ ! -f "$ZET/$type/$fileName" ]] && [[ ! -f "$ZET/$type/$fileName" ]]; then
+    echo -e "\nError: zettel does not exist."
+    exit 1
+  fi
+
+  # check if zettel id is valid
+  title=$(head -n 1 "$fileToFix")
+  slug=$(echo "$title" | sed "s/# //" | sed "s/\`//" | slugify)
+  fileId="$(basename "$fileToFix" | cut -d '.' -f 2)"
+  newFileName=""
+
+  # if invalid id, generate a new one
+  if [[ ! $fileId =~ [0-9] ]]; then
+    newFileName="$slug.$(isosec).md"
+  else
+    newFileName="${slug}.${fileId}.md"
+  fi
+
+  # get the zettel type (fleet or permanent)
+  type=$(dirname "$(realpath "$fileToFix")")
+  type="${type##*/}"
+
+  oldFilePath="$ZET/$type/${fileToFix##*/}"
+  newFilePath="$ZET/$type/$newFileName"
+
+  newLink="* [${title//\`/}]($newFilePath)"
+
+  # replace all oldLinks with newLinks
+  while IFS=":" read -ra lines; do
+    file="${lines[0]}"
+    oldLink="${lines[1]}"
+
+    perl -i -pe "s|\Q$oldLink\E|$newLink|g;" "$file"
+
+    echo "Modified: $file"
+  done < <(
+    rg '^.*'"$fileId"'.*$' "$FLEET" "$PERMANENT"
+  )
+
+  # clear the file from the history (previously)
+  gsed -i "/$(basename "$fileToFix")/d" "$HISTORY"
+
+  # update the filename if the file isn't the same
+  if [[ "$oldFilePath" != "$newFilePath" ]]; then
+
+    cat "$oldFilePath" >"$newFilePath"
+    rm "$oldFilePath"
+
+    # open the new file
+    tmux new-window -d nvr "$newFilePath"
+  fi
+
+}
+
+x.history() {
+  local counter=1
+  while IFS="/" read -ra zettel; do
+    type="${zettel[0]}"
+    file="${zettel[1]}"
+
+    filePath="$ZET/$type/$file"
+
+    title=$(head -n 1 "$filePath")
+    fileId="$(basename "$filePath" | cut -d '.' -f 2)"
+
+    echo -e "$fileId $yellow$title$reset"
+
+    ((counter++))
+  done <"$HISTORY"
+}
+
+x.history.edit() { nvr -s -l "$HISTORY"; }
+
+x.history.insert() {
+  local file="$1"
+
+  _is_zettel "$file"
+
+  # get the zettel type (fleet or permanent)
+  fileName=$(basename "$file")
+  type=$(dirname "$(realpath "$file")")
+  type="${type##*/}"
+
+  # clear the file from the history (previously)
+  gsed -i "/$fileName/d" "$HISTORY"
+
+  # append file to the history
+  echo "$type/$fileName" >>"$HISTORY"
+}
+
+x.status() {
+  echo "todo"
 }
 
 # --------------------- utility ---------------------
+
+_is_zettel() {
+  local file="$1"
+
+  # get the zettel type (fleet or permanent)
+  fileName=$(basename "$file")
+  type=$(dirname "$(realpath "$file")")
+  type="${type##*/}"
+
+  # check if file is existent under fleet/ and permanent/
+  if [[ ! -f "$ZET/$type/$fileName" ]] && [[ ! -f "$ZET/$type/$fileName" ]]; then
+    echo -e "\nError: zettel does not exist."
+    exit 1
+  fi
+
+  # check if zettel id is valid
+  fileId="$(basename "$file" | cut -d '.' -f 2)"
+
+  case $fileId in
+  *[0-9]*) return ;;
+  *)
+    echo -e "\nError: invalid zettel id"
+    exit 1
+    ;;
+  esac
+}
 
 # --------------------- aliases ---------------------
 
@@ -181,6 +407,34 @@ _aliases() {
     ;;
   "qf")
     "x.query.fleet" "$@"
+    exit $?
+    ;;
+  "rm")
+    "x.remove" "$@"
+    exit $?
+    ;;
+  "n")
+    "x.new" "$@"
+    exit $?
+    ;;
+  "p")
+    "x.permanent" "$@"
+    exit $?
+    ;;
+  "e")
+    "x.edit" "$@"
+    exit $?
+    ;;
+  "f")
+    "x.fix" "$@"
+    exit $?
+    ;;
+  "ep")
+    "x.edit.prev" "$@"
+    exit $?
+    ;;
+  "l")
+    "x.link" "$@"
     exit $?
     ;;
   esac
