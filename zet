@@ -247,6 +247,9 @@ x.remove() {
 
   # clear the file from the history
   gsed -i "/$zettelID/d" "$HISTORY"
+
+  # open the query panel
+  tmux new-window -d nvr -c "Telescope live_grep"
 }
 
 x.query() {
@@ -267,17 +270,9 @@ x.query.fleet() {
 x.fix() {
   local fileToFix="$1"
 
-  fileName=$(basename "$fileToFix")
-  type=$(dirname "$(realpath "$fileToFix")")
-  type="${type##*/}"
-
-  # check if file is existent under fleet/ and permanent/
-  if [[ ! -f "$ZET/$type/$fileName" ]] && [[ ! -f "$ZET/$type/$fileName" ]]; then
-    echo -e "\nError: zettel does not exist."
-    exit 1
-  fi
-
   # check if zettel id is valid
+  _is_zettel "$fileToFix"
+
   title=$(head -n 1 "$fileToFix")
   slug=$(echo "$title" | sed "s/# //" | sed "s/\`//" | slugify)
   fileId="$(basename "$fileToFix" | cut -d '.' -f 2)"
@@ -306,7 +301,7 @@ x.fix() {
 
     perl -i -pe "s|\Q$oldLink\E|$newLink|g;" "$file"
 
-    echo "Modified: $file"
+    echo "Updated Link: $file"
   done < <(
     rg '^.*'"$fileId"'.*$' "$FLEET" "$PERMANENT"
   )
@@ -397,7 +392,7 @@ _is_zettel() {
 # --------------------- aliases ---------------------
 
 _aliases() {
-  alias="$1"
+  local alias="$1"
   shift
 
   case $alias in
@@ -463,7 +458,7 @@ if [[ -n "$1" ]]; then
   declare CMD="$1"
   shift
 
-  _aliases "$CMD"
+  _aliases "$CMD" "$@"
 
   for c in "${COMMANDS[@]}"; do
     if [[ $c == "$CMD" ]]; then
