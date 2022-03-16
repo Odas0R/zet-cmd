@@ -11,8 +11,6 @@ declare reset="\e[0m"
 # constants
 
 declare -r ZET="$HOME/github.com/zet"
-# switch for testing
-# declare -r ZET="$HOME/github.com/zet-cmd/.zet"
 declare -r FLEET="$ZET/fleet"
 declare -r PERMANENT="$ZET/permanent"
 declare -r HISTORY="$ZET/.history"
