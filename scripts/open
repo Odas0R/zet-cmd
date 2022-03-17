@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+nvr -s --remote +3 "$@"

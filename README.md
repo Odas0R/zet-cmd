@@ -17,3 +17,14 @@ editors, etc).
 
 - `nvr`
 - `rg`
+
+## Checklist
+
+- [x] new
+- [x] query
+- [ ] backlog
+- [ ] permanent
+- [ ] link
+- [ ] history
+- [ ] edit
+- [ ] fix

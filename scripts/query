@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+INITIAL_QUERY="${*:-}"
+SEARCH="rg --column --line-number --no-heading --color=always --smart-case --trim"
+
+IFS=: read -ra selected < <(
+  eval "$SEARCH $(printf %q "$INITIAL_QUERY")" |
+    fzf-tmux -p 95% --ansi \
+      -m \
+      -e \
+      --ansi \
+      --disabled \
+      --reverse \
+      --delimiter : \
+      --bind "ctrl-/:select-all" \
+      --bind "change:reload:$SEARCH {q} || true" \
+      --preview 'bat --theme=OneHalfDark --color=always {1} --highlight-line {2}'
+)
+
+file=${selected[0]}
+
+nvr -s --remote "$file"

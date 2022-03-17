@@ -18,6 +18,10 @@ const (
 	permanentPath = "./example/fleet"
 	templatesPath = "./example/templates"
 	historyPath   = "./example/templates"
+
+  // scripts
+  open = "./scripts/open"
+  query = "./scripts/query"
 )
 
 type Zettel struct {
@@ -94,8 +98,8 @@ func main() {
 					}
 					f.Close()
 
-					// open the respective zettel with the $EDITOR
-          cmd := exec.Command("nvr", "-s", "--remote", "+3", filePath)
+					// open the respective zettel
+          cmd := exec.Command(open, filePath)
           cmd.Start()
 
 					return nil
@@ -106,7 +110,11 @@ func main() {
 				Aliases: []string{"q"},
 				Usage:   "",
 				Action: func(c *cli.Context) error {
-					fmt.Println("Querying the zettelkasten 👀")
+
+					// Execute the script query
+          cmd := exec.Command(query)
+          cmd.Start()
+
 					return nil
 				},
 			},
