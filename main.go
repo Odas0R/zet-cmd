@@ -3,12 +3,14 @@ package main
 import (
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/gosimple/slug"
 	"github.com/urfave/cli/v2"
 )
@@ -19,9 +21,9 @@ const (
 	templatesPath = "./example/templates"
 	historyPath   = "./example/templates"
 
-  // scripts
-  open = "./scripts/open"
-  query = "./scripts/query"
+	// scripts
+	open  = "./scripts/open"
+	query = "./scripts/query"
 )
 
 type Zettel struct {
@@ -99,8 +101,8 @@ func main() {
 					f.Close()
 
 					// open the respective zettel
-          cmd := exec.Command(open, filePath)
-          cmd.Start()
+					cmd := exec.Command(open, filePath)
+					cmd.Start()
 
 					return nil
 				},
@@ -112,8 +114,35 @@ func main() {
 				Action: func(c *cli.Context) error {
 
 					// Execute the script query
-          cmd := exec.Command(query)
-          cmd.Start()
+					cmd := exec.Command(query)
+					cmd.Start()
+
+					return nil
+				},
+			},
+			{
+				Name:    "backlog",
+				Aliases: []string{"bg"},
+				Usage:   "",
+				Action: func(c *cli.Context) error {
+
+					files, err := ioutil.ReadDir("/tmp/")
+					if err != nil {
+						log.Fatal(err)
+					}
+
+					for _, file := range files {
+						fmt.Println(file.Name(), file.IsDir())
+					}
+
+					// https://github.com/AlecAivazis/survey
+					color := ""
+					prompt := &survey.Select{
+						Message: "Choose a color:",
+						Options: []string{"red", "blue", "green"},
+					}
+
+					survey.AskOne(prompt, &color)
 
 					return nil
 				},

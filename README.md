@@ -26,5 +26,9 @@ editors, etc).
 - [ ] permanent
 - [ ] link
 - [ ] history
-- [ ] edit
+- [ ] history.prev
+- [ ] history.insert
 - [ ] fix
+- [ ] journal
+- [ ] journal.prev
+- [ ] status
