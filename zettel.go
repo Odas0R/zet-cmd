@@ -2,41 +2,59 @@ package main
 
 import (
 	"bufio"
+	"fmt"
+	"html/template"
 	"log"
 	"os"
-	"path/filepath"
+	"os/exec"
 )
 
 type Zettel struct {
-	ID    int64
-	Name  string
-	Type  string
-	Title string
-	Tags  []string
-	Links []string
-	Lines []string
+	ID       int64
+	Name     string
+	Type     string
+	Title    string
+	Path     string
+	FileName string
+	Tags     []string
+	Links    []string
+	Lines    []string
 }
 
-func New(filePath string) *Zettel {
-	// zettelType := filepath.Dir(filePath)
-  lines := getLines(filePath)
+func (z Zettel) Create() (Zettel, error) {
+  config := &Config{}
 
-	return &Zettel{
-		Name:  filePath,
-		Lines: lines,
+	// parse the template
+	tmpl, err := template.ParseFiles(fmt.Sprintf("%s/zet.tmpl.md", templatesPath))
+	if err != nil {
+		return z, err
 	}
-}
 
-func NewFromType(type "fleet" | "permanent") *Zettel {
-	zettelType := filepath.Dir(filePath)
-  lines := getLines(filePath)
-
-	return &Zettel{
-		Name:  filePath,
-		Lines: lines,
+	// create the zettel file
+	f, err := os.Create(z.Path)
+	if err != nil {
+		return z, err
 	}
+
+	// put the given title to the zettel
+	err = tmpl.Execute(f, z)
+	if err != nil {
+		return z, err
+	}
+	f.Close()
+
+	// Set the lines of the file
+	z.Lines = getLines(z.Path)
+
+	return z, nil
 }
 
+func (z Zettel) Open() {
+	cmd := exec.Command(open, z.Path)
+	cmd.Start()
+}
+
+// -------------------- private methods -----------------------
 
 func getLines(filePath string) []string {
 	file, err := os.Open(filePath)

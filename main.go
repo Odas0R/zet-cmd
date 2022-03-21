@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	"html/template"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,25 +14,6 @@ import (
 	"github.com/gosimple/slug"
 	"github.com/urfave/cli/v2"
 )
-
-const (
-	fleetPath     = "./example/fleet"
-	permanentPath = "./example/fleet"
-	templatesPath = "./example/templates"
-	historyPath   = "./example/templates"
-
-	// scripts
-	open  = "./scripts/open"
-	query = "./scripts/query"
-)
-
-type Zettel struct {
-	ID       int64
-	FileName string
-	Title    string
-	Tags     []string
-	Links    []string
-}
 
 func main() {
 	app := &cli.App{
@@ -69,40 +50,23 @@ func main() {
 
 					fileName := fmt.Sprintf("%s.%d.md", slug, id)
 
-					fmt.Println(fileName)
+					filePath := fmt.Sprintf("%s/%s", fleetPath, fileName)
 
-					zettel := &Zettel{
+					zettel, err := Zettel{
 						ID:       id,
 						Title:    title,
 						FileName: fileName,
+						Path:     filePath,
 						Tags:     []string{},
 						Links:    []string{},
-					}
+					}.Create()
 
-					// parse the template
-					tmpl, err := template.ParseFiles(fmt.Sprintf("%s/zet.tmpl.md", templatesPath))
 					if err != nil {
 						return err
 					}
 
-					filePath := fmt.Sprintf("%s/%s", fleetPath, fileName)
-
-					// create the zettel file
-					f, err := os.Create(filePath)
-					if err != nil {
-						return err
-					}
-
-					// put the given title to the zettel
-					err = tmpl.Execute(f, zettel)
-					if err != nil {
-						return err
-					}
-					f.Close()
-
-					// open the respective zettel
-					cmd := exec.Command(open, filePath)
-					cmd.Start()
+					// opens the zettel on the specified $EDITOR
+					zettel.Open()
 
 					return nil
 				},
@@ -113,9 +77,25 @@ func main() {
 				Usage:   "",
 				Action: func(c *cli.Context) error {
 
+					query, err := filepath.Abs("./github.com/zet-cmd/scripts/query")
+					if err != nil {
+						return err
+					}
+
+					fmt.Println(query)
+
 					// Execute the script query
 					cmd := exec.Command(query)
-					cmd.Start()
+					// cmd.Start()
+
+					bytes, err := cmd.Output()
+					if err != nil {
+						return err
+					}
+
+					filePath := string(bytes[:])
+
+					fmt.Println(filePath)
 
 					return nil
 				},
@@ -143,6 +123,21 @@ func main() {
 					}
 
 					survey.AskOne(prompt, &color)
+
+					return nil
+				},
+			},
+			{
+				Name:    "config",
+				Aliases: []string{"c"},
+				Usage:   "",
+				Action: func(c *cli.Context) error {
+					config := &Config{}
+
+					err := config.Init()
+					if err != nil {
+						return err
+					}
 
 					return nil
 				},

@@ -17,6 +17,5 @@ IFS=: read -ra selected < <(
       --preview 'bat --theme=OneHalfDark --color=always {1} --highlight-line {2}'
 )
 
-file=${selected[0]}
+echo "${selected[0]}"
 
-nvr -s --remote "$file"
