@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"log"
 	"os"
+	"path"
 	"path/filepath"
 )
 
@@ -52,11 +54,61 @@ func (c Config) Init() error {
 		return err
 	}
 
-  // TODO:
-  // create the zettelkasten layout
+	// TODO:
+	// create the zettelkasten layout
 
 	return nil
 }
 
 func (c Config) Edit() {
+}
+
+// ----------------------- utility -----------------------
+
+// templates/
+// assets/
+// fleet/
+// permanent/
+// journal/
+//  goals.md
+//  habits.md
+//  ideas.md
+//  inspiration.md
+//  todos.md
+func setupLayout(c Config) error {
+	var (
+		root      = c.RootDir
+		templates = path.Join(c.RootDir, "templates")
+		assets    = path.Join(c.RootDir, "assets")
+		permanent = path.Join(c.RootDir, "permanent")
+		journal   = path.Join(c.RootDir, "permanent")
+	)
+
+	// templates setup
+	if err := os.Mkdir(templates, 0755); err != nil {
+		return err
+	}
+	// add two templates, journal and zettel
+
+	if err := os.Mkdir(templates, 0755); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// If the file doesn't exist, create it, or append to the file
+func appendTextToFile(filepath string, text string) error {
+	f, err := os.OpenFile(filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+    return err
+	}
+	if _, err := f.WriteString(text); err != nil {
+    return err
+	}
+	if err := f.Close(); err != nil {
+    return err
+	}
+
+  return nil
 }
