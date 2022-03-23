@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 )
@@ -38,12 +38,12 @@ func (c Config) Init() error {
 			return err
 		}
 
-		// c.Root
+		// c.RootDir
 		c.RootDir = rootDirPath
 
 		// append data to the config file
 		file, _ := json.MarshalIndent(c, "", " ")
-		_ = ioutil.WriteFile(c.RootDir, file, 0644)
+		_ = ioutil.WriteFile(configPath, file, 0644)
 
 		return nil
 	}
@@ -54,28 +54,50 @@ func (c Config) Init() error {
 		return err
 	}
 
-	// TODO:
 	// create the zettelkasten layout
+	err = SetupLayout(c)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func (c Config) Edit() {
+func (c Config) Editor() string {
+	e := m.Get("EDITOR")
+	if e != "" {
+		return e
+	}
+	e = os.Getenv("EDITOR")
+	if e != "" {
+		return e
+	}
+	e = os.Getenv("VISUAL")
+	if e != "" {
+		return e
+	}
+	path, err := exec.LookPath("vi")
+	if err != nil {
+		return path
+	}
+	return ""
 }
 
-// ----------------------- utility -----------------------
+// TODO: try to port the script query and open to here
+//
+// 1. if there's tmux, check for fzf-tmux
+// 2. if there's not tmux, check for fzf
+// 3. if there's not fzf, throw error saying that they need to install
+// fzf
+func (c Config) Edit() {
+  editor := c.Editor()
 
-// templates/
-// assets/
-// fleet/
-// permanent/
-// journal/
-//  goals.md
-//  habits.md
-//  ideas.md
-//  inspiration.md
-//  todos.md
-func setupLayout(c Config) error {
+	cmd := exec.Command(editor, c.RootDir)
+	cmd.Start()
+}
+
+// Create the zettelkasten directory layout
+func SetupLayout(c Config) error {
 	var (
 		root      = c.RootDir
 		templates = path.Join(c.RootDir, "templates")
@@ -84,31 +106,40 @@ func setupLayout(c Config) error {
 		journal   = path.Join(c.RootDir, "permanent")
 	)
 
-	// templates setup
-	if err := os.Mkdir(templates, 0755); err != nil {
+	// create zet/
+	if err := Mkdir(root); err != nil {
 		return err
 	}
-	// add two templates, journal and zettel
 
-	if err := os.Mkdir(templates, 0755); err != nil {
+	// create templates/
+	if err := Mkdir(templates); err != nil {
+		return err
+	}
+
+	// create templates/journal.tmpl.md
+	if err := Cat(journalTmpl, path.Join(templates, "journal.tmpl.md")); err != nil {
+		return err
+	}
+
+	// create templates/zet.tmpl.md
+	if err := Cat(zetTmpl, path.Join(templates, "zet.tmpl.md")); err != nil {
+		return err
+	}
+
+	// create assets/
+	if err := Mkdir(assets); err != nil {
+		return err
+	}
+
+	// create permanent/
+	if err := Mkdir(permanent); err != nil {
+		return err
+	}
+
+	// create journal/
+	if err := Mkdir(journal); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-// If the file doesn't exist, create it, or append to the file
-func appendTextToFile(filepath string, text string) error {
-	f, err := os.OpenFile(filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-    return err
-	}
-	if _, err := f.WriteString(text); err != nil {
-    return err
-	}
-	if err := f.Close(); err != nil {
-    return err
-	}
-
-  return nil
 }
