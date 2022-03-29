@@ -7,11 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
-	"time"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/gosimple/slug"
 	"github.com/urfave/cli/v2"
 )
 
@@ -44,29 +41,29 @@ func main() {
 						return nil
 					}
 
-					title := strings.Join(c.Args().Slice(), " ")
-					id := time.Now().Unix()
-					slug := slug.Make(title)
-
-					fileName := fmt.Sprintf("%s.%d.md", slug, id)
-
-					filePath := fmt.Sprintf("%s/%s", fleetPath, fileName)
-
-					zettel, err := Zettel{
-						ID:       id,
-						Title:    title,
-						FileName: fileName,
-						Path:     filePath,
-						Tags:     []string{},
-						Links:    []string{},
-					}.Create()
-
-					if err != nil {
-						return err
-					}
-
-					// opens the zettel on the specified $EDITOR
-					zettel.Open()
+					// title := strings.Join(c.Args().Slice(), " ")
+					// id := time.Now().Unix()
+					// slug := slug.Make(title)
+					//
+					// fileName := fmt.Sprintf("%s.%d.md", slug, id)
+					//
+					// filePath := fmt.Sprintf("%s/%s", fleetPath, fileName)
+					//
+					// zettel, err := Zettel{
+					// 	ID:       id,
+					// 	Title:    title,
+					// 	FileName: fileName,
+					// 	Path:     filePath,
+					// 	Tags:     []string{},
+					// 	Links:    []string{},
+					// }.Create()
+					//
+					// if err != nil {
+					// 	return err
+					// }
+					//
+					// // opens the zettel on the specified $EDITOR
+					// zettel.Open()
 
 					return nil
 				},

@@ -2,8 +2,8 @@ package main
 
 /**
  * These represent the kick-starter templates which a user can modify
-* after
-*/
+ * after
+ */
 
 // file: zet.tmpl.md
 var zetTmpl = `

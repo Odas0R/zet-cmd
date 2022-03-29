@@ -11,15 +11,23 @@ import (
 )
 
 const (
-	configFile = ".zet"
+	configFile = ".zet.json"
 	rootDir    = "zet"
 )
 
 type Config struct {
-	RootDir string `json:"rootDir"`
+	RootPath string `json:"rootPath"`
+	Editor   string `json:"editor"`
+
+	// Auxiliary
+	TemplatesPath string `json:"-"`
+	FleetPath     string `json:"-"`
+	PermanentPath string `json:"-"`
+	JournalPath   string `json:"-"`
+	AssetsPath    string `json:"-"`
 }
 
-func (c Config) Init() error {
+func (c *Config) Init() error {
 	dirname, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -38,8 +46,8 @@ func (c Config) Init() error {
 			return err
 		}
 
-		// c.RootDir
-		c.RootDir = rootDirPath
+		c.RootPath = rootDirPath
+		c.Editor = ""
 
 		// append data to the config file
 		file, _ := json.MarshalIndent(c, "", " ")
@@ -54,7 +62,7 @@ func (c Config) Init() error {
 		return err
 	}
 
-	// create the zettelkasten layout
+	// create the zettelkasten layout and inserts the auxiliary variables
 	err = SetupLayout(c)
 	if err != nil {
 		return err
@@ -63,8 +71,8 @@ func (c Config) Init() error {
 	return nil
 }
 
-func (c Config) Editor() string {
-	e := m.Get("EDITOR")
+func (c *Config) LookEditor() string {
+	e := c.Editor
 	if e != "" {
 		return e
 	}
@@ -76,7 +84,7 @@ func (c Config) Editor() string {
 	if e != "" {
 		return e
 	}
-	path, err := exec.LookPath("vi")
+	path, err := exec.LookPath("vim")
 	if err != nil {
 		return path
 	}
@@ -89,22 +97,30 @@ func (c Config) Editor() string {
 // 2. if there's not tmux, check for fzf
 // 3. if there's not fzf, throw error saying that they need to install
 // fzf
-func (c Config) Edit() {
-  editor := c.Editor()
+func (c *Config) Edit() {
+	editor := c.LookEditor()
 
-	cmd := exec.Command(editor, c.RootDir)
+	cmd := exec.Command(editor, c.RootPath)
 	cmd.Start()
 }
 
 // Create the zettelkasten directory layout
-func SetupLayout(c Config) error {
+func SetupLayout(c *Config) error {
 	var (
-		root      = c.RootDir
-		templates = path.Join(c.RootDir, "templates")
-		assets    = path.Join(c.RootDir, "assets")
-		permanent = path.Join(c.RootDir, "permanent")
-		journal   = path.Join(c.RootDir, "permanent")
+		root      = c.RootPath
+		templates = path.Join(root, "templates")
+		assets    = path.Join(root, "assets")
+		permanent = path.Join(root, "permanent")
+		fleet     = path.Join(root, "fleet")
+		journal   = path.Join(root, "journal")
 	)
+
+	// setup auxiliary paths
+	c.FleetPath = fleet
+	c.PermanentPath = permanent
+	c.TemplatesPath = templates
+	c.JournalPath = journal
+	c.AssetsPath = assets
 
 	// create zet/
 	if err := Mkdir(root); err != nil {
@@ -128,6 +144,11 @@ func SetupLayout(c Config) error {
 
 	// create assets/
 	if err := Mkdir(assets); err != nil {
+		return err
+	}
+
+	// create fleet/
+	if err := Mkdir(fleet); err != nil {
 		return err
 	}
 
