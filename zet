@@ -10,7 +10,7 @@ declare reset="\e[0m"
 
 # constants
 
-declare -r ZET="$HOME/github.com/zet"
+declare -r ZET="$HOME/github.com/odas0r/zet"
 declare -r FLEET="$ZET/fleet"
 declare -r PERMANENT="$ZET/permanent"
 declare -r HISTORY="$ZET/.history"
@@ -238,13 +238,13 @@ x.remove() {
   # remove old links
   while IFS=":" read -ra lines; do
     file="${lines[0]}"
-    gsed -i "/$zettelID/d" "$file"
+    sed -i "/$zettelID/d" "$file"
   done < <(
     rg '^.*'"$zettelID"'.*$' "$FLEET" "$PERMANENT"
   )
 
   # clear the file from the history
-  gsed -i "/$zettelID/d" "$HISTORY"
+  sed -i "/$zettelID/d" "$HISTORY"
 
   # open the query panel
   tmux new-window -d nvr -c "Telescope live_grep"
@@ -305,7 +305,7 @@ x.fix() {
   )
 
   # clear the file from the history (previously)
-  gsed -i "/$(basename "$fileToFix")/d" "$HISTORY"
+  sed -i "/$(basename "$fileToFix")/d" "$HISTORY"
 
   # update the filename if the file isn't the same
   if [[ "$oldFilePath" != "$newFilePath" ]]; then
@@ -349,7 +349,7 @@ x.history.insert() {
   type="${type##*/}"
 
   # clear the file from the history (previously)
-  gsed -i "/$fileName/d" "$HISTORY"
+  sed -i "/$fileName/d" "$HISTORY"
 
   # append file to the history
   echo "$type/$fileName" >>"$HISTORY"
