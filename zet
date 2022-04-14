@@ -18,48 +18,29 @@ declare -r TEMPLATES="$ZET/.templates"
 
 # TODO:
 #
-# [ ] ui (starts a server on bg so that you can preview your notes)
-# [ ] ui <file> (opens the current note on the browser)
-# [ ] status
-
-# IDEAS:
-#
-# [ ] journal         displays every journal created with the
-#                     description of the day (and can select one to
-#                     open like `zet edit`)
-#
-# [ ] journal.today   opens the today journal file
-#
-# [ ] journal.prev    opens the yesterday journal file
-#
-# [ ] goals           opens the goals file
-#
-# [ ] tmpl            displays all templates and select one to open
-#                     with the default editor
-#
-# [ ] tmpl.new        creates a new template by giving the name
+# [ ] ui
+# [ ] ui <file> 
 
 x.help() {
   printf '
 A personal zettelkasten program
 
-Commands:        Alias  
-  help                   Show help commands
-  new             <n>    Create a new zettel by giving it a title
-  query           <q>    Queries the all zettels with a full-text search panel
-  query.fleet     <qf>   Queries the fleet zettels with a full-text search panel
-  permanent       <p>    Transforms a fleet zettel into a permanent one
-  link            <l>    Links two zettels by showing the history or giving the 
-                         ids directly.
-  edit            <e>    Edits a zettel by picking one from the history
-  edit.prev       <ep>   Edits the last opened zettel
-  ui                     Starts a server on bg so that you can preview your notes on a UI
-  ui <file>              Opens the current note on the ui server
-  fix             <f>    Renames the current zet from the # title
-  history         <f>    Shows the history of the opened zettels
-  history.insert  <f>    Inserts the zettel into the history log file
-  history.edit    <f>    Opens the editor on the history log file
-  status          <s>    Pretty print your progress on `goals` and journal
+Commands:                Alias  
+  help                           Show help commands
+  new                     <n>    Create a new zettel by giving it a title
+  query <tags>            <q>    Queries the all zettels with a full-text search panel
+  query.fleet  <tags>     <qf>   Full-text-search on the fleet zettels
+  permanent               <p>    Transforms a fleet zettel into a permanent one
+  link                    <l>    Links two zettels by showing the history or giving the 
+                                 ids directly.
+  edit                    <e>    Edits a zettel by picking one from the history
+  edit.last               <el>   Edits the last opened zettel
+  ui                             Starts a server on bg so that you can preview your notes on a UI
+  ui <file>                      Opens the current note on the ui server
+  fix                     <f>    Renames the current zet from the # title
+  history                 <f>    Shows the history of the opened zettels
+  history.insert          <f>    Inserts the zettel into the history log file
+  history.edit            <f>    Opens the editor on the history log file
 '
 }
 
@@ -118,13 +99,11 @@ x.link() {
   fileOnePath=${ids["$z1"]}
   fileTwoPath=${ids["$z2"]}
 
-  if [[ -z "$fileOnePath" ]] || [[ -z "$fileTwoPath" ]]; then
-    echo -e "\nError: file(s) doesn't exist"
-    exit 1
-  fi
+  _is_zettel "$fileOnePath"
+  _is_zettel "$fileTwoPath"
 
   if [[ "$fileOnePath" == "$fileTwoPath" ]]; then
-    echo -e "\nError: you can't link the same file."
+    echo -e "\nError: you can't link the same zettel."
     exit 1
   fi
 
@@ -192,7 +171,7 @@ x.edit() {
   nvr -s -l "$filePath"
 }
 
-x.edit.prev() {
+x.edit.last() {
   file=$(tail -1 "$HISTORY")
 
   cd "$ZET"
@@ -252,12 +231,55 @@ x.remove() {
 
 x.query() {
   cd "$PERMANENT"
-  nvr -s -l -c "Telescope live_grep"
+
+  subcommand=${1%%=*}
+
+  if [[ -z $subcommand ]]; then
+    nvr -s -l -c "lua require('odas0r.telescope').search_zet_permanent({})"
+    exit
+  fi
+
+
+  if [[ $subcommand != "--tags" ]]; then
+    echo "subcommand not found"
+    echo "Existent subcommand: --tags"
+    exit 1
+  fi
+
+  tags=${1##*=}
+  tags=${tags//#/\'#}
+  tags=${tags//,/\',\'}
+  tags=${tags//,\'/,}
+  tags="${tags}'"
+
+  # echo $tags
+  nvr -s -l -c "lua require('odas0r.telescope').search_zet_permanent({$tags})"
 }
 
 x.query.fleet() {
   cd "$FLEET"
-  nvr -s -l -c "Telescope live_grep"
+
+  subcommand=${1%%=*}
+
+  if [[ -z $subcommand ]]; then
+    nvr -s -l -c "lua require('odas0r.telescope').search_zet_fleet({})"
+    exit
+  fi
+
+
+  if [[ -n $subcommand ]] && [[ $subcommand != "--tags" ]]; then
+    echo "Subcommand not found"
+    echo "Available subcommand: --tags"
+    exit 1
+  fi
+
+  tags=${1##*=}
+  tags=${tags//#/\'#}
+  tags=${tags//,/\',\'}
+  tags=${tags//,\'/,}
+  tags="${tags}'"
+
+  nvr -s -l -c "lua require('odas0r.telescope').search_zet_fleet({$tags})"
 }
 
 # Fix a zettel
@@ -355,7 +377,7 @@ x.history.insert() {
   echo "$type/$fileName" >>"$HISTORY"
 }
 
-x.status() {
+x.backlog() {
   echo "todo"
 }
 
@@ -423,11 +445,15 @@ _aliases() {
     exit $?
     ;;
   "ep")
-    "x.edit.prev" "$@"
+    "x.edit.last" "$@"
     exit $?
     ;;
   "l")
     "x.link" "$@"
+    exit $?
+    ;;
+  "bg")
+    "x.backlog" "$@"
     exit $?
     ;;
   esac
@@ -457,7 +483,7 @@ if [[ -n "$1" ]]; then
   shift
 
   _aliases "$CMD" "$@"
-
+  
   for c in "${COMMANDS[@]}"; do
     if [[ $c == "$CMD" ]]; then
       "x.$CMD" "$@"
