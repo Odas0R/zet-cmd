@@ -276,7 +276,7 @@ x.query.tags() {
 
   # echo "$selectedTags"
 
-  nvr -s -l -c "lua require('odas0r.telescope').search_zet_fleet({$selectedTags})"
+  nvr -s -l -c "lua require('odas0r.telescope').search_zet({$selectedTags})"
 }
 
 # Fix a given zettel file
