@@ -19,7 +19,7 @@ declare -r TEMPLATES="$ZET/.templates"
 # TODO:
 #
 # [ ] ui
-# [ ] ui <file> 
+# [ ] ui <file>
 
 x.help() {
   printf '
@@ -28,11 +28,18 @@ A personal zettelkasten program
 Commands:                Alias  
   help                           Show help commands
   new                     <n>    Create a new zettel by giving it a title
-  query <tags>            <q>    Queries the all zettels with a full-text search panel
-  query.fleet  <tags>     <qf>   Full-text-search on the fleet zettels
+  query                   <q>    Queries the all zettels with a full-text search panel
+  query.fleet             <qf>   Full-text-search on the fleet zettels
+  query.tags              <qt>   Prints all the tags that are being used, and
+                                 select many to add to the query
   permanent               <p>    Transforms a fleet zettel into a permanent one
   link                    <l>    Links two zettels by showing the history or giving the 
                                  ids directly.
+  tags                    <t>    Prints all the tags that are being used
+  tags.edit               <te>   Prints all the tags that are being used, and
+                                 replaces that tag globally
+  tags.remove             <td>   Prints all the tags that are being used, and
+                                 deletes that tag globally
   edit                    <e>    Edits a zettel by picking one from the history
   edit.last               <el>   Edits the last opened zettel
   ui                             Starts a server on bg so that you can preview your notes on a UI
@@ -99,8 +106,8 @@ x.link() {
   fileOnePath=${ids["$z1"]}
   fileTwoPath=${ids["$z2"]}
 
-  _is_zettel "$fileOnePath"
-  _is_zettel "$fileTwoPath"
+  _validate_zettel "$fileOnePath"
+  _validate_zettel "$fileTwoPath"
 
   if [[ "$fileOnePath" == "$fileTwoPath" ]]; then
     echo -e "\nError: you can't link the same zettel."
@@ -185,7 +192,7 @@ x.permanent() {
   fileName="$(basename "$file")"
 
   # check if file is a zettel
-  _is_zettel "$file"
+  _validate_zettel "$file"
 
   if [[ -f "$PERMANENT/$fileName" ]]; then
     echo -e "\nError: zettel already is permanent"
@@ -206,7 +213,7 @@ x.remove() {
   local file="$1"
 
   # check if file is a zettel
-  _is_zettel "$file"
+  _validate_zettel "$file"
 
   zettelID="$(basename "$file" | cut -d '.' -f 2)"
 
@@ -232,57 +239,47 @@ x.remove() {
 x.query() {
   cd "$PERMANENT"
 
-  subcommand=${1%%=*}
-
-  if [[ -z $subcommand ]]; then
-    nvr -s -l -c "lua require('odas0r.telescope').search_zet_permanent({})"
-    exit
-  fi
-
-
-  if [[ $subcommand != "--tags" ]]; then
-    echo "subcommand not found"
-    echo "Existent subcommand: --tags"
-    exit 1
-  fi
-
-  tags=${1##*=}
-  tags=${tags//#/\'#}
-  tags=${tags//,/\',\'}
-  tags=${tags//,\'/,}
-  tags="${tags}'"
-
-  # echo $tags
-  nvr -s -l -c "lua require('odas0r.telescope').search_zet_permanent({$tags})"
+  nvr -s -l -c "lua require('odas0r.telescope').search_zet_permanent({})"
 }
 
 x.query.fleet() {
   cd "$FLEET"
 
-  subcommand=${1%%=*}
-
-  if [[ -z $subcommand ]]; then
-    nvr -s -l -c "lua require('odas0r.telescope').search_zet_fleet({})"
-    exit
-  fi
-
-
-  if [[ -n $subcommand ]] && [[ $subcommand != "--tags" ]]; then
-    echo "Subcommand not found"
-    echo "Available subcommand: --tags"
-    exit 1
-  fi
-
-  tags=${1##*=}
-  tags=${tags//#/\'#}
-  tags=${tags//,/\',\'}
-  tags=${tags//,\'/,}
-  tags="${tags}'"
-
-  nvr -s -l -c "lua require('odas0r.telescope').search_zet_fleet({$tags})"
+  nvr -s -l -c "lua require('odas0r.telescope').search_zet_fleet({})"
 }
 
-# Fix a zettel
+x.query.tags() {
+  tmp=$(_get_tags)
+  eval "declare -A tags=${tmp#*=}"
+
+  echo -e "\n${yellow}Current Tags:$reset\n"
+
+  for key in "${!tags[@]}"; do
+    echo -e "$key) \e[3$((RANDOM * 6 / 32767 + 1))m${tags[$key]}$reset"
+  done | sort -n
+
+  # add \n
+  echo
+
+  read -r -p "Select tags to filter on search: " tagNrs
+
+  local selectedTags
+  for nr in $tagNrs; do
+    selectedTags+="${tags[$nr]},"
+  done
+
+  # selectedTags=${1##*=}
+  selectedTags=${selectedTags//#/\'#}
+  selectedTags=${selectedTags//,/\',\'}
+  selectedTags=${selectedTags//,\'/,}
+  selectedTags=${selectedTags::-1}
+
+  # echo "$selectedTags"
+
+  nvr -s -l -c "lua require('odas0r.telescope').search_zet_fleet({$selectedTags})"
+}
+
+# Fix a given zettel file
 #
 # 1. Fix the current file basename regarding the # title
 # 2. Fix all the link title and path associated with the current opened
@@ -291,7 +288,7 @@ x.fix() {
   local fileToFix="$1"
 
   # check if zettel id is valid
-  _is_zettel "$fileToFix"
+  _validate_zettel "$fileToFix"
 
   title=$(head -n 1 "$fileToFix")
   slug=$(echo "$title" | sed "s/# //" | sed "s/\`//" | slugify)
@@ -363,7 +360,13 @@ x.history.edit() { nvr -s -l "$HISTORY"; }
 x.history.insert() {
   local file="$1"
 
-  _is_zettel "$file"
+  _validate_zettel "$file"
+
+  # if there's 30 zettels on history, delete the first one
+  numberOfZettels=$(wc -l)
+  if ((numberOfZettels == 30)); then
+    tail -n +2 "$HISTORY" | sponge "$HISTORY"
+  fi
 
   # get the zettel type (fleet or permanent)
   fileName=$(basename "$file")
@@ -377,13 +380,96 @@ x.history.insert() {
   echo "$type/$fileName" >>"$HISTORY"
 }
 
-x.backlog() {
-  echo "todo"
+# Command: tags
+#
+# Pretty prints all tags that are currently in use
+#
+# Example: zet tags
+x.tags() {
+  tmp=$(_get_tags)
+  eval "declare -A tags=${tmp#*=}"
+
+  echo -e "\n${yellow}Current Tags:$reset\n"
+
+  for key in "${!tags[@]}"; do
+    echo -e "$key) \e[3$((RANDOM * 6 / 32767 + 1))m${tags[$key]}$reset"
+  done | sort -n
+
+  # add \n
+  echo
+}
+
+# Command: tags.edit
+#
+# Pretty prints all tags that are currently in use and allows to input a
+# replacement for a chosen tag. Every file that contains that tag will be
+# modified.
+#
+# Example: zet tags.edit
+x.tags.edit() {
+  tmp=$(_get_tags)
+  eval "declare -a tags=${tmp#*=}"
+
+  echo -e "\n${yellow}current tags:$reset\n"
+
+  for key in "${!tags[@]}"; do
+    echo -e "$key) \e[3$((RANDOM * 6 / 32767 + 1))m${tags[$key]}$reset"
+  done | sort -n
+
+  # add \n
+  echo
+
+  read -r -p "Tag you want to edit: " tagNr
+  read -r -p "New name: " newTag
+
+  oldTag="${tags["$tagNr"]}"
+
+  # format newtag
+  newTag=${newTag// /}
+  newTag=${newTag//#/}
+  newTag="#$newTag"
+
+  # seach and replace oldtag with newtag
+  rg -w "$oldTag" "$FLEET" "$PERMANENT" -l |
+    xargs -I@ sed -i "s/$oldTag/$newTag/g" @
+
+  printf '\n%s\n\n' "Replaced tag $oldTag with $newTag!"
+}
+
+# Command: tags.remove
+#
+# Pretty prints all tags that are currently in use and allows to input a tag to
+# be deleted. Every file that contains that tag will be modified.
+#
+# Example: zet tags.remove
+x.tags.remove() {
+  tmp=$(_get_tags)
+  eval "declare -A tags=${tmp#*=}"
+
+  echo -e "\n${yellow}Current Tags:$reset\n"
+
+  for key in "${!tags[@]}"; do
+    echo -e "$key) \e[3$((RANDOM * 6 / 32767 + 1))m${tags[$key]}$reset"
+  done | sort -n
+
+  # add \n
+  echo
+
+  read -r -p "Tag you want to delete: " tagNr
+
+  oldTag="${tags["$tagNr"]}"
+
+    # seach and replace oldtag with newtag
+  rg -w "$oldTag" "$FLEET" "$PERMANENT" -l |
+    xargs -I@ sed -i "s/$oldTag//g" @
+
+  printf '\n%s\n\n' "Deleted $oldTag"
 }
 
 # --------------------- utility ---------------------
 
-_is_zettel() {
+# validates a given zettel by checking his id, and file
+_validate_zettel() {
   local file="$1"
 
   # get the zettel type (fleet or permanent)
@@ -409,6 +495,31 @@ _is_zettel() {
   esac
 }
 
+_get_tags() {
+  declare -A uniqueTags tags
+
+  # get all tags and remove all repeated ones
+  while IFS=":" read -ra lines; do
+    tagArr="${lines[2]/ /}"
+
+    for tag in $tagArr; do
+      uniqueTags["$tag"]="$tag"
+    done
+  done < <(
+    rg -e " #[a-zA-Z]" "$FLEET" "$PERMANENT"
+  )
+
+  # format the associative array with an array index
+  local index=1
+  for tag in "${uniqueTags[@]}"; do
+    tags["$index"]=$tag
+    ((index++))
+  done
+
+  # dump tags in shell reusable format
+  declare -p tags
+}
+
 # --------------------- aliases ---------------------
 
 _aliases() {
@@ -422,6 +533,10 @@ _aliases() {
     ;;
   "qf")
     "x.query.fleet" "$@"
+    exit $?
+    ;;
+  "qt")
+    "x.query.tags" "$@"
     exit $?
     ;;
   "rm")
@@ -452,8 +567,16 @@ _aliases() {
     "x.link" "$@"
     exit $?
     ;;
-  "bg")
-    "x.backlog" "$@"
+  "t")
+    "x.tags" "$@"
+    exit $?
+    ;;
+  "te")
+    "x.tags.edit" "$@"
+    exit $?
+    ;;
+  "tr")
+    "x.tags.remove" "$@"
     exit $?
     ;;
   esac
@@ -483,7 +606,7 @@ if [[ -n "$1" ]]; then
   shift
 
   _aliases "$CMD" "$@"
-  
+
   for c in "${COMMANDS[@]}"; do
     if [[ $c == "$CMD" ]]; then
       "x.$CMD" "$@"
