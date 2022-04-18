@@ -410,7 +410,7 @@ x.tags.edit() {
   tmp=$(_get_tags)
   eval "declare -a tags=${tmp#*=}"
 
-  echo -e "\n${yellow}current tags:$reset\n"
+  echo -e "\n${yellow}Current tags:$reset\n"
 
   for key in "${!tags[@]}"; do
     echo -e "$key) \e[3$((RANDOM * 6 / 32767 + 1))m${tags[$key]}$reset"
