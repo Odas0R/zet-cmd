@@ -52,6 +52,7 @@ Commands:                Alias
   query.tags              <qt>   Prints all the tags that are being used, and
                                  select many to add to the query
   permanent               <p>    Transforms a fleet zettel into a permanent one
+  remove                  <rm>   Removes a zettel .md file and cleans up all metadata (links, etc)
   link                    <l>    Links two zettels by showing the history or giving the 
                                  ids directly.
   tags                    <t>    Prints all the tags that are being used
@@ -64,9 +65,9 @@ Commands:                Alias
   ui                             Starts a server on bg so that you can preview your notes on a UI
   ui <file>                      Opens the current note on the ui server
   fix                     <f>    Renames the current zet from the # title
-  history                 <f>    Shows the history of the opened zettels
-  history.insert          <f>    Inserts the zettel into the history log file
-  history.edit            <f>    Opens the editor on the history log file
+  history                        Shows the history of the opened zettels
+  history.insert                 Inserts the zettel into the history log file
+  history.edit                   Opens the editor on the history log file
 '
 }
 
