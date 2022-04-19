@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# shellcheck disable=SC2155
+
 set -e
 
 # colors
@@ -16,10 +18,27 @@ declare -r PERMANENT="$ZET/permanent"
 declare -r HISTORY="$ZET/.history"
 declare -r TEMPLATES="$ZET/.templates"
 
+# Log messages
+
+declare -r DEBUG=0
+
+declare -r ARGUMENTS_EMPTY="arguments cannot be empty"
+declare -r FILE_NOT_EXIST="file does not exist"
+
+declare -r ZETTEL_NOT_VALID="given zettel is not valid"
+declare -r ZETTEL_ALREADY_PERMANENT="given zettel is already permanent"
+
+declare -r LINK_ALREADY_EXISTS="link already exists"
+declare -r CANNOT_LINK_SAME_ZETTEL="can't link the same zettel"
+
 # TODO:
 #
 # [ ] ui
 # [ ] ui <file>
+#
+# [ ] Generate a README for your commands
+# [ ] Refactor your CLI
+# [ ] Build a docker container to manage this cli
 
 x.help() {
   printf '
@@ -59,8 +78,7 @@ x.new() {
   file="$slug.$(isosec).md"
 
   if [[ -z "$file" ]] || [[ -z "$title" ]]; then
-    echo -e "\nError: invalid arguments"
-    exit 1
+    _throwError "$ARGUMENTS_EMPTY"
   fi
 
   # change path to the fleet notes
@@ -73,64 +91,51 @@ x.new() {
   nvr -s -l +3 "$file"
 }
 
-# Links two files.
+# Command: link
 #
-# To understand the context of "linking":
+# Creates a [title](url) below the already existent links
 #
-# > On which note/context (file_one) would I like to find this current
-# > note (file_two)?
+# To understand linkage: "On what note/context (file_one) would I like to find
+# this current note (file_two)?"
+#
+# Example: link
 x.link() {
-  declare -A ids
 
   cd "$ZET"
 
-  local counter=1
-  while IFS="/" read -ra zettel; do
-    type="${zettel[0]}"
-    file="${zettel[1]}"
+  local -a history=$(history.get)
 
-    filePath="$ZET/$type/$file"
+  for key in "${!history[@]}"; do
+    file=${history[$key]}
+    basename=$(basename "$file")
+    title=$(head -n 1 "$file")
+    id="$(echo "$basename" | cut -d '.' -f 2)"
 
-    title=$(head -n 1 "$filePath")
-    fileId="$(basename "$filePath" | cut -d '.' -f 2)"
+    echo -e "$key) [$id] $yellow$title$reset"
+  done
 
-    echo -e "$counter) $fileId $yellow$title$reset [${type}]"
+  read -r -p "Enter the zettels you want to link: " optionOne optionTwo
 
-    ids["$counter"]=$filePath
-
-    ((counter++))
-  done < <(tail -n30 "$HISTORY")
-
-  read -r -p "Enter the zettels you want to link: " z1 z2
-
-  fileOnePath=${ids["$z1"]}
-  fileTwoPath=${ids["$z2"]}
-
-  _validate_zettel "$fileOnePath"
-  _validate_zettel "$fileTwoPath"
+  fileOnePath=${history["$optionOne"]}
+  fileTwoPath=${history["$optionTwo"]}
 
   if [[ "$fileOnePath" == "$fileTwoPath" ]]; then
-    echo -e "\nError: you can't link the same zettel."
-    exit 1
+    _throwError "$CANNOT_LINK_SAME_ZETTEL"
   fi
 
-  fileOneTitle="$(head -n 1 "$fileOnePath")"
-  fileOneLink="* [${fileOneTitle}](${fileOnePath})"
+  basename=$(basename "$fileOnePath")
+  title=$(head -n 1 "$fileOnePath")
+  id="$(echo "$basename" | cut -d '.' -f 2)"
+
+  link="- [$title](${fileOnePath})"
 
   # check if the link already exists
-  fileOneID="$(basename "$fileOnePath" | cut -d '.' -f 2)"
-  if grep -q "$fileOneID" "$fileTwoPath"; then
-    echo -e "\nError: link already exists!"
-    exit 1
+  if grep -q "$id" "$fileTwoPath"; then
+    _throwError "$LINK_ALREADY_EXISTS"
   fi
 
-  # add a \n if 'Links' is in the last line
-  if [[ "$(tail -1 "$fileOnePath")" =~ "Links" ]]; then
-    echo >>"$fileTwoPath"
-  fi
-
-  # Add the link
-  echo "$fileOneLink" >>"$fileTwoPath"
+  # the following adds one line after Links
+  sed -i "/Links/a\ \n${link}" "$fileTwoPath"
 
   printf '
 ┌──▷ %s
@@ -140,100 +145,61 @@ x.link() {
 ' "$fileOnePath" "$fileTwoPath"
 }
 
-# show all the previous files opened by querying + edit
-# if no args
-#
-# if args find a file by that Id and open it
-x.edit() {
-  declare -A ids
-
-  cd "$ZET"
-
-  local counter=1
-  while IFS="/" read -ra zettel; do
-    type="${zettel[0]}"
-    file="${zettel[1]}"
-
-    filePath="$ZET/$type/$file"
-
-    title=$(head -n 1 "$filePath")
-    fileId="$(basename "$filePath" | cut -d '.' -f 2)"
-
-    echo -e "$counter) $fileId $yellow$title$reset"
-
-    ids["$counter"]=$filePath
-
-    ((counter++))
-  done < <(tail -n30 "$HISTORY")
-
-  read -r -p "Which file do you want to edit?: " z1
-
-  filePath=${ids["$z1"]}
-
-  if [[ -z "$filePath" ]]; then
-    echo -e "\nError: file doesn't exist"
-    exit 1
-  fi
-
-  nvr -s -l "$filePath"
-}
-
-x.edit.last() {
-  file=$(tail -1 "$HISTORY")
-
-  cd "$ZET"
-
-  nvr -s -l "$file"
-}
-
 x.permanent() {
   local file="$1"
 
-  fileName="$(basename "$file")"
-
-  # check if file is a zettel
-  _validate_zettel "$file"
-
-  if [[ -f "$PERMANENT/$fileName" ]]; then
-    echo -e "\nError: zettel already is permanent"
-    exit 1
+  if ! zettel.isValid "$file"; then
+    _throwError "$ZETTEL_NOT_VALID"
   fi
 
-  # move the file under /permanent
-  mv "$FLEET/$fileName" "$PERMANENT/$fileName"
+  declare -A zettel=$(zettel.get "$file")
+
+  basename=$(basename "$file")
+  type=$(dirname "$(realpath "$file")")
+  type="${type##*/}"
+
+  if [[ $type == "permanent" ]]; then
+    _throwError "$ZETTEL_ALREADY_PERMANENT"
+  fi
+
+  fleetPath="$FLEET/$basename"
+  permanentPath="$PERMANENT/$basename"
+
+  # move the file from fleet to permanent
+  mv "$fleetPath" "$permanentPath"
 
   # replace all the links with the old file path with the new one
-  x.fix "$PERMANENT/$fileName"
+  x.fix "$permanentPath"
 
   # open the new file
-  tmux new-window -d nvr "$PERMANENT/$fileName"
+  tmux new-window -d nvr "$permanentPath"
 }
 
 x.remove() {
   local file="$1"
 
-  # check if file is a zettel
-  _validate_zettel "$file"
+  if ! zettel.isValid "$file"; then
+    _throwError "$ZETTEL_NOT_VALID"
+  fi
 
-  zettelID="$(basename "$file" | cut -d '.' -f 2)"
+  basename=$(basename "$file")
+  id="$(echo "$basename" | cut -d '.' -f 2)"
 
-  rm "$file"
-
-  cd "$ZET"
+  rm -f "$file" && cd "$ZET"
 
   # remove old links
   while IFS=":" read -ra lines; do
     file="${lines[0]}"
-    sed -i "/$zettelID/d" "$file"
+    sed -i "/$id/d" "$file"
   done < <(
-    rg '^.*'"$zettelID"'.*$' "$FLEET" "$PERMANENT"
+    rg '^.*'"$id"'.*$' "$FLEET" "$PERMANENT"
   )
 
   # clear the file from the history
-  sed -i "/$zettelID/d" "$HISTORY"
+  sed -i "/$id/d" "$HISTORY"
 
   # open the query panel
-  tmux new-window -d nvr -c "Telescope live_grep"
+  tmux new-window -d nvr -c "bdelete | Telescope live_grep"
 }
 
 x.query() {
@@ -249,14 +215,13 @@ x.query.fleet() {
 }
 
 x.query.tags() {
-  tmp=$(_get_tags)
-  eval "declare -A tags=${tmp#*=}"
+  local -a tags=$(tag.get)
 
   echo -e "\n${yellow}Current Tags:$reset\n"
 
   for key in "${!tags[@]}"; do
     echo -e "$key) \e[3$((RANDOM * 6 / 32767 + 1))m${tags[$key]}$reset"
-  done | sort -n
+  done
 
   # add \n
   echo
@@ -268,13 +233,10 @@ x.query.tags() {
     selectedTags+="${tags[$nr]},"
   done
 
-  # selectedTags=${1##*=}
   selectedTags=${selectedTags//#/\'#}
   selectedTags=${selectedTags//,/\',\'}
   selectedTags=${selectedTags//,\'/,}
   selectedTags=${selectedTags::-1}
-
-  # echo "$selectedTags"
 
   nvr -s -l -c "lua require('odas0r.telescope').search_zet({$selectedTags})"
 }
@@ -287,20 +249,15 @@ x.query.tags() {
 x.fix() {
   local fileToFix="$1"
 
-  # check if zettel id is valid
-  _validate_zettel "$fileToFix"
+  if ! zettel.isValid "$file"; then
+    _throwError "$ZETTEL_NOT_VALID"
+  fi
 
+  # get the new zettel data
   title=$(head -n 1 "$fileToFix")
   slug=$(echo "$title" | sed "s/# //" | sed "s/\`//" | slugify)
   fileId="$(basename "$fileToFix" | cut -d '.' -f 2)"
-  newFileName=""
-
-  # if invalid id, generate a new one
-  if [[ ! $fileId =~ [0-9] ]]; then
-    newFileName="$slug.$(isosec).md"
-  else
-    newFileName="${slug}.${fileId}.md"
-  fi
+  newFileName="${slug}.${fileId}.md"
 
   # get the zettel type (fleet or permanent)
   type=$(dirname "$(realpath "$fileToFix")")
@@ -335,24 +292,43 @@ x.fix() {
     # open the new file
     tmux new-window -d nvr "$newFilePath"
   fi
-
 }
 
-x.history() {
-  local counter=1
-  while IFS="/" read -ra zettel; do
-    type="${zettel[0]}"
-    file="${zettel[1]}"
+# show all the previous files opened by querying + edit
+# if no args
+#
+# if args find a file by that Id and open it
+x.edit() {
+  cd "$ZET"
 
-    filePath="$ZET/$type/$file"
+  local -a history=$(history.get)
 
-    title=$(head -n 1 "$filePath")
-    fileId="$(basename "$filePath" | cut -d '.' -f 2)"
+  for key in "${!history[@]}"; do
+    file=${history[$key]}
+    basename=$(basename "$file")
+    title=$(head -n 1 "$file")
+    id="$(echo "$basename" | cut -d '.' -f 2)"
 
-    echo -e "$fileId $yellow$title$reset"
+    echo -e "$key) [$id] $yellow$title$reset"
+  done
 
-    ((counter++))
-  done <"$HISTORY"
+  read -r -p "Which file do you want to edit?: " option
+
+  selected=${history["$option"]}
+
+  if [[ ! -f "$selected" ]]; then
+    _throwError "$FILE_NOT_EXIST"
+  fi
+
+  nvr -s -l "$selected"
+}
+
+x.edit.last() {
+  file=$(tail -1 "$HISTORY")
+
+  cd "$ZET"
+
+  nvr -s -l "$file"
 }
 
 x.history.edit() { nvr -s -l "$HISTORY"; }
@@ -360,24 +336,42 @@ x.history.edit() { nvr -s -l "$HISTORY"; }
 x.history.insert() {
   local file="$1"
 
-  _validate_zettel "$file"
-
-  # if there's 30 zettels on history, delete the first one
-  numberOfZettels=$(wc -l)
-  if ((numberOfZettels == 30)); then
-    tail -n +2 "$HISTORY" | sponge "$HISTORY"
+  if ! zettel.isValid "$file"; then
+    _throwError "$ZETTEL_NOT_VALID"
   fi
 
-  # get the zettel type (fleet or permanent)
-  fileName=$(basename "$file")
+  basename=$(basename "$file")
+  id="$(echo "$basename" | cut -d '.' -f 2)"
   type=$(dirname "$(realpath "$file")")
   type="${type##*/}"
 
-  # clear the file from the history (previously)
-  sed -i "/$fileName/d" "$HISTORY"
+
+  # clear the file from the history (previously) if exists
+  sed -i "/$id/d" "$HISTORY"
+
+  # if there's 30 zettels on history, delete the first one
+  numberOfZettels=$(wc -l "$HISTORY" | awk '{ print $1 }')
+
+  if ((numberOfZettels == 30)); then
+    # tail -n +2 "$HISTORY" | sponge "$HISTORY"
+    sed -i '1d' "$HISTORY"
+  fi
 
   # append file to the history
-  echo "$type/$fileName" >>"$HISTORY"
+  echo "$type/$basename" >>"$HISTORY"
+}
+
+x.history() {
+  local -a history=$(history.get)
+
+  for key in "${!history[@]}"; do
+    file=${history[$key]}
+    basename=$(basename "$file")
+    title=$(head -n 1 "$file")
+    id="$(echo "$basename" | cut -d '.' -f 2)"
+
+    echo -e "$key) [$id] $yellow$title$reset"
+  done
 }
 
 # Command: tags
@@ -386,14 +380,13 @@ x.history.insert() {
 #
 # Example: zet tags
 x.tags() {
-  tmp=$(_get_tags)
-  eval "declare -A tags=${tmp#*=}"
+  local -a tags=$(tag.get)
 
   echo -e "\n${yellow}Current Tags:$reset\n"
 
   for key in "${!tags[@]}"; do
     echo -e "$key) \e[3$((RANDOM * 6 / 32767 + 1))m${tags[$key]}$reset"
-  done | sort -n
+  done
 
   # add \n
   echo
@@ -407,14 +400,13 @@ x.tags() {
 #
 # Example: zet tags.edit
 x.tags.edit() {
-  tmp=$(_get_tags)
-  eval "declare -a tags=${tmp#*=}"
+  local -a tags=$(tag.get)
 
   echo -e "\n${yellow}Current tags:$reset\n"
 
   for key in "${!tags[@]}"; do
     echo -e "$key) \e[3$((RANDOM * 6 / 32767 + 1))m${tags[$key]}$reset"
-  done | sort -n
+  done
 
   # add \n
   echo
@@ -433,7 +425,7 @@ x.tags.edit() {
   rg -w "$oldTag" "$FLEET" "$PERMANENT" -l |
     xargs -I@ sed -i "s/$oldTag/$newTag/g" @
 
-  printf '\n%s\n\n' "Replaced tag $oldTag with $newTag!"
+  printf '\n%s\n\n' "Replaced tag \e[3$((RANDOM * 6 / 32767 + 1))m$oldTag$reset with \e[3$((RANDOM * 6 / 32767 + 1))m$newTag$reset!"
 }
 
 # Command: tags.remove
@@ -443,14 +435,13 @@ x.tags.edit() {
 #
 # Example: zet tags.remove
 x.tags.remove() {
-  tmp=$(_get_tags)
-  eval "declare -A tags=${tmp#*=}"
+  local -a tags=$(tag.get)
 
   echo -e "\n${yellow}Current Tags:$reset\n"
 
   for key in "${!tags[@]}"; do
     echo -e "$key) \e[3$((RANDOM * 6 / 32767 + 1))m${tags[$key]}$reset"
-  done | sort -n
+  done
 
   # add \n
   echo
@@ -459,18 +450,21 @@ x.tags.remove() {
 
   oldTag="${tags["$tagNr"]}"
 
-    # seach and replace oldtag with newtag
+  # seach and replace oldtag with newtag
   rg -w "$oldTag" "$FLEET" "$PERMANENT" -l |
     xargs -I@ sed -i "s/$oldTag//g" @
 
-  printf '\n%s\n\n' "Deleted $oldTag"
+  printf '\n%s\n\n' "Deleted \e[3$((RANDOM * 6 / 32767 + 1))m$oldTag$reset"
 }
 
-# --------------------- utility ---------------------
+# --------------------- zettel ---------------------
 
-# validates a given zettel by checking his id, and file
-_validate_zettel() {
+# isValid checks if a given zettel is valid by checking his id, and file,
+# returns 0 if valid, 1 if not
+zettel.isValid() {
   local file="$1"
+
+  [[ -z "$file" ]] && _throwError "$ARGUMENTS_EMPTY"
 
   # get the zettel type (fleet or permanent)
   fileName=$(basename "$file")
@@ -478,25 +472,51 @@ _validate_zettel() {
   type="${type##*/}"
 
   # check if file is existent under fleet/ and permanent/
-  if [[ ! -f "$ZET/$type/$fileName" ]] && [[ ! -f "$ZET/$type/$fileName" ]]; then
-    echo -e "\nError: zettel does not exist."
-    exit 1
+  if [[ ! -f "$FLEET/$fileName" ]] && [[ ! -f "$PERMANENT/$fileName" ]]; then
+    return 1
   fi
 
   # check if zettel id is valid
   fileId="$(basename "$file" | cut -d '.' -f 2)"
 
   case $fileId in
-  *[0-9]*) return ;;
+  *[0-9]*) return 0 ;;
   *)
-    echo -e "\nError: invalid zettel id"
-    exit 1
+    return 1
     ;;
   esac
+
+  return 0
 }
 
-_get_tags() {
-  declare -A uniqueTags tags
+# ------------------- history -------------------
+
+history.get() {
+  local -a history
+
+  local counter=1
+  while IFS="/" read -ra zettel; do
+    type="${zettel[0]}"
+    file="${zettel[1]}"
+
+    filePath="$ZET/$type/$file"
+
+    # insert the zettel into the history array
+    history+=("$filePath")
+
+    ((counter++))
+  done <"$HISTORY"
+
+  output=$(declare -p history)
+  output=${output#*=}
+
+  echo "${output[@]}"
+}
+
+# --------------------- tag ---------------------
+
+tag.get() {
+  local -A uniqueTags tags
 
   # get all tags and remove all repeated ones
   while IFS=":" read -ra lines; do
@@ -517,7 +537,46 @@ _get_tags() {
   done
 
   # dump tags in shell reusable format
-  declare -p tags
+  output=$(declare -p tags)
+  output=${output#*=}
+
+  echo "${output[@]}"
+}
+
+# --------------------- utils ---------------------
+
+_throwError() {
+  local msg=$1
+
+  if [[ -z "$msg" ]]; then
+    echo -e "\n${red}Error:${reset} $ARGUMENTS_EMPTY \n"
+
+    if $DEBUG; then
+      _stacktrace
+    fi
+
+    exit 1
+  fi
+
+  echo -e "\n${red}Error:${reset} $msg \n"
+
+  if $DEBUG; then
+    _stacktrace
+  fi
+
+  exit 1
+}
+
+_stacktrace() {
+  local i=0 size=${#BASH_SOURCE[@]}
+  ((i < size)) && echo "STACKTRACE:"
+  for (( ; i < size - 1; i++)); do
+    ((frame = ${#BASH_SOURCE[@]} - i - 2))
+    echo "[$frame] ${BASH_SOURCE[$i]:-}:${BASH_LINENO[$i]} ${FUNCNAME[$i + 1]}()"
+  done
+
+  # add \n
+  echo
 }
 
 # --------------------- aliases ---------------------
