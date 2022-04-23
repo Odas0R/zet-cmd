@@ -7,6 +7,7 @@ set -e
 # colors
 declare red="\e[1;31m"
 declare yellow="\e[1;33m"
+declare cyan="\e[36m"
 declare reset="\e[0m"
 
 # constants
@@ -128,19 +129,25 @@ x.link() {
 
   local -A history
 
+  local genFile="/tmp/$(isosec)"
+
   local counter=1
   while IFS="%" read -ra zettel; do
     file="${zettel[0]}"
     print="${zettel[1]}"
     history[$counter]=$file
 
-    echo -e "$counter) $print"
+    echo -e "$counter) $print" >>"$genFile"
 
     ((counter++))
   done < <(
     export -f zettel.print
-    xargs -I@ bash -c "zettel.print @" <"$HISTORY"
+    xargs -P 30 -I@ bash -c "zettel.print @" <"$HISTORY"
   )
+
+  # pretty print & cleanup
+  column -t -s $'\t' <"$genFile"
+  rm "$genFile"
 
   read -r -p "Enter the zettels you want to link: " -a options
 
@@ -209,7 +216,7 @@ x.link() {
       link="[$title](./${fileOne})"
 
       # the following adds one line after Links
-      sed -i "/Links/a\ \n${link}" "$fileTwo"
+      sed -i "/Links/a\ ${link}" "$fileTwo"
     done
 
     echo -e "\nLinks created!\n"
@@ -282,21 +289,27 @@ x.backlog() {
 
   local -A fleet
 
+  local genFile="/tmp/$(isosec)"
+
   local counter=1
   while IFS="%" read -ra zettel; do
     file="${zettel[0]}"
     print="${zettel[1]}"
     fleet[$counter]=$file
 
-    echo -e "$counter) $print"
+    echo -e "$counter) $print" >>"$genFile"
 
     ((counter++))
   done < <(
     export -f zettel.print
     fd . \
-      -j 8 \
+      --threads 30 \
       --exec bash -c "zettel.print {}"
   )
+
+  # pretty print & cleanup
+  column -t -s $'\t' <"$genFile"
+  rm "$genFile"
 
   echo -e "\n${yellow}Total:${reset} $counter\n"
 
@@ -313,11 +326,13 @@ x.backlog() {
 
 x.backlog.week() {
 
-  echo -e "\n${yellow}Backlog of Today${reset}\n"
+  echo -e "\n${yellow}Backlog of the Week${reset}\n"
 
   cd "$FLEET"
 
   local -A fleet
+
+  local genFile="/tmp/$(isosec)"
 
   local counter=1
   while IFS="%" read -ra zettel; do
@@ -325,15 +340,19 @@ x.backlog.week() {
     print="${zettel[1]}"
     fleet[$counter]=$file
 
-    echo -e "$counter) $print"
+    echo -e "$counter) $print" >>"$genFile"
 
     ((counter++))
   done < <(
     export -f zettel.print
     fd . --changed-within 2weeks \
-      -j 8 \
+      --threads 30 \
       --exec bash -c "zettel.print {}"
   )
+
+  # pretty print & cleanup
+  column -t -s $'\t' <"$genFile"
+  rm "$genFile"
 
   echo -e "\n${yellow}Total:${reset} $counter\n"
 
@@ -355,21 +374,27 @@ x.backlog.today() {
 
   local -A fleet
 
+  local genFile="/tmp/$(isosec)"
+
   local counter=1
   while IFS="%" read -ra zettel; do
     file="${zettel[0]}"
     print="${zettel[1]}"
     fleet[$counter]=$file
 
-    echo -e "$counter) $print"
+    echo -e "$counter) $print" >>"$genFile"
 
     ((counter++))
   done < <(
     export -f zettel.print
     fd . --changed-within 1d \
-      -j 8 \
+      --threads 30 \
       --exec bash -c "zettel.print {}"
   )
+
+  # pretty print & cleanup
+  column -t -s $'\t' <"$genFile"
+  rm "$genFile"
 
   echo -e "\n${yellow}Total:${reset} $counter\n"
 
@@ -491,19 +516,25 @@ x.history() {
 
   local -A history
 
+  local genFile="/tmp/$(isosec)"
+
   local counter=1
   while IFS="%" read -ra zettel; do
     file="${zettel[0]}"
     print="${zettel[1]}"
     history[$counter]=$file
 
-    echo -e "$counter) $print"
+    echo -e "$counter) $print" >>"$genFile"
 
     ((counter++))
   done < <(
     export -f zettel.print
-    xargs -I@ bash -c "zettel.print @" <"$HISTORY"
+    xargs -P 30 -I@ bash -c "zettel.print @" <"$HISTORY"
   )
+
+  # pretty print
+  column -t -s $'\t' <"$genFile"
+  rm "$genFile"
 
   read -r -p "Which file do you want to edit?: " option
 
@@ -593,7 +624,7 @@ x.tags.edit() {
 
   # seach and replace oldtag with newtag
   rg -w "$oldTag" "$FLEET" "$PERMANENT" -l |
-    xargs -I@ sed -i "s/$oldTag/$newTag/g" @
+    xargs -P 30 -I@ sed -i "s/$oldTag/$newTag/g" @
 
   printf '\n%s\n\n' "Replaced tag \e[3$((RANDOM * 6 / 32767 + 1))m$oldTag$reset with \e[3$((RANDOM * 6 / 32767 + 1))m$newTag$reset!"
 }
@@ -622,7 +653,7 @@ x.tags.remove() {
 
   # seach and replace oldtag with newtag
   rg -w "$oldTag" "$FLEET" "$PERMANENT" -l |
-    xargs -I@ sed -i "s/$oldTag//g" @
+    xargs -P 30 -I@ sed -i "s/$oldTag//g" @
 
   printf '\n%s\n\n' "Deleted \e[3$((RANDOM * 6 / 32767 + 1))m$oldTag$reset"
 }
@@ -662,11 +693,25 @@ zettel.isValid() {
 zettel.print() {
   local file="$1"
 
+  local black="\e[30m"
+  local red="\e[31m"
+  local green="\e[32m"
+  local yellow="\e[33m"
+  local blue="\e[34m"
+  local magenta="\e[35m"
+  local cyan="\e[36m"
+  local white="\e[37m"
+  local reset="\e[0m"
+
   basename=$(basename "$file")
   title=$(head -n 1 "$file")
   id="$(echo "$basename" | cut -d '.' -f 2)"
+  type=$(dirname "$(realpath "$file")")
+  type="${type##*/}"
+  tags="$(tail -n 1 "$file")"
 
-  echo -e "$file%[$id] \e[1;33m$title\e[0m"
+  # the \t are
+  echo -e "$file%${yellow}$title${reset} \t ${cyan}[${type}]${reset} \t ${tags}"
 }
 
 # ------------------- history -------------------
