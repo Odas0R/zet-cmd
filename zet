@@ -6,7 +6,7 @@ set -e
 
 # colors
 declare red="\e[1;31m"
-declare yellow="\e[1;33m"
+declare yellow="\033[0;93m"
 declare cyan="\e[36m"
 declare reset="\e[0m"
 
@@ -35,6 +35,8 @@ declare -r CANNOT_LINK_SAME_ZETTEL="can't link the same zettel"
 #
 # [ ] ui
 # [ ] ui <file>
+# [ ] info (A minimalist overview of your zettelkasten)
+# [ ] info.orphans (A minimalist overview of orphans on your zettelkasten)
 #
 # [ ] Generate a README for your commands
 # [ ] Refactor your CLI
@@ -145,13 +147,25 @@ x.link() {
     xargs -P 30 -I@ bash -c "zettel.print @" <"$HISTORY"
   )
 
-  # pretty print & cleanup
-  column -t -s $'\t' <"$genFile"
+  local -a output
+  local -a options
+
+  # pretty print, don't wrap text & cleanup
+  tput rmam
+  mapfile -t output < <(column -t -s $'\t' <"$genFile" | fzf-tmux -p 95% --multi --ansi)
+  tput smam
+
+  for row in "${output[@]}"; do
+    options+=("${row%%\)*}")
+  done
+
+  tput rmam
+  optionToLink=$(column -t -s $'\t' <"$genFile" | fzf-tmux -p 95% --ansi)
+  optionToLink="${optionToLink%%\)*}"
+  tput smam
+
   rm "$genFile"
 
-  read -r -p "Enter the zettels you want to link: " -a options
-
-  lastOption=${options[-1]}
   len=${#options[@]}
 
   local counter=1
@@ -161,7 +175,7 @@ x.link() {
     fi
 
     fileOne=${history["$option"]}
-    fileTwo=${history["$lastOption"]}
+    fileTwo=${history["$optionToLink"]}
 
     if [[ ! -f "$fileOne" ]] || [[ ! -f "$fileTwo" ]]; then
       _throwError "$FILE_NOT_FOUND"
@@ -182,19 +196,29 @@ x.link() {
 
   # print the links that are about to be created
 
-  echo -e "\n${yellow}Links:${reset}\n"
+  echo -e "\n${yellow}Zettels to be linked:${reset}\n"
+
+  local genTwoFile="/tmp/$(isosec)"
 
   for option in "${options[@]}"; do
-    [[ $option == "$lastOption" ]] && continue
+    [[ $option == "$optionToLink" ]] && continue
 
     fileOne=${history["$option"]}
-    fileTwo=${history["$lastOption"]}
+    fileTwo=${history["$optionToLink"]}
 
     titleOne=$(head -n 1 "$fileOne")
     titleTwo=$(head -n 1 "$fileTwo")
 
-    echo -e "${titleOne} --- ${titleTwo}"
+    echo -e "${titleOne} \t ---> \t ${titleTwo}" >>"$genTwoFile"
   done
+
+  # pretty print
+
+  tput rmam
+  column -t -s $'\t' <"$genTwoFile"
+  tput smam
+
+  rm "$genTwoFile"
 
   # add \n
   echo
@@ -205,10 +229,10 @@ x.link() {
   if [[ $answer =~ [yY](es)* ]]; then
 
     for option in "${options[@]}"; do
-      [[ $option == "$lastOption" ]] && continue
+      [[ $option == "$optionToLink" ]] && continue
 
       fileOne=${history["$option"]}
-      fileTwo=${history["$lastOption"]}
+      fileTwo=${history["$optionToLink"]}
 
       title=$(head -n 1 "$fileOne")
       id="$(basename "$fileOne" | cut -d '.' -f 2)"
@@ -216,13 +240,13 @@ x.link() {
       link="[$title](./${fileOne})"
 
       # the following adds one line after Links
-      sed -i "/Links/a\ ${link}" "$fileTwo"
+      sed -i "/Links/a\\${link}" "$fileTwo"
     done
 
     echo -e "\nLinks created!\n"
 
     read -r -p "Open file [y/Y]? " answer
-    [[ $answer =~ [yY](es)* ]] && nvr -s -l -c "cd $ZET" "${history["$lastOption"]}"
+    [[ $answer =~ [yY](es)* ]] && nvr -s -l -c "cd $ZET" "${history["$optionToLink"]}"
   fi
 }
 
@@ -303,19 +327,21 @@ x.backlog() {
   done < <(
     export -f zettel.print
     fd . \
-      --threads 30 \
+      --threads 8 \
       --exec bash -c "zettel.print {}"
   )
 
-  # pretty print & cleanup
-  column -t -s $'\t' <"$genFile"
-  rm "$genFile"
-
   echo -e "\n${yellow}Total:${reset} $counter\n"
 
-  read -r -p "Select zettel to open: " option
+  # pretty print, don't wrap text & cleanup
+  tput rmam
+  number=$(column -t -s $'\t' <"$genFile" | fzf-tmux -p 95% --ansi)
+  tput smam
 
-  file="${fleet[$option]}"
+  rm "$genFile"
+
+  number="${number%%\)*}"
+  file="${fleet[$number]}"
 
   if [[ ! -f "$file" ]]; then
     _throwError "$FILE_NOT_FOUND"
@@ -350,15 +376,16 @@ x.backlog.week() {
       --exec bash -c "zettel.print {}"
   )
 
-  # pretty print & cleanup
-  column -t -s $'\t' <"$genFile"
-  rm "$genFile"
-
   echo -e "\n${yellow}Total:${reset} $counter\n"
 
-  read -r -p "Select zettel to open: " option
+  tput rmam
+  number=$(column -t -s $'\t' <"$genFile" | fzf-tmux -p 95% --ansi)
+  tput smam
 
-  file="${fleet[$option]}"
+  rm "$genFile"
+
+  number="${number%%\)*}"
+  file="${fleet[$number]}"
 
   if [[ ! -f "$file" ]]; then
     _throwError "$FILE_NOT_FOUND"
@@ -391,16 +418,16 @@ x.backlog.today() {
       --threads 30 \
       --exec bash -c "zettel.print {}"
   )
-
-  # pretty print & cleanup
-  column -t -s $'\t' <"$genFile"
-  rm "$genFile"
-
   echo -e "\n${yellow}Total:${reset} $counter\n"
 
-  read -r -p "Select zettel to open: " option
+  tput rmam
+  number=$(column -t -s $'\t' <"$genFile" | fzf-tmux -p 95% --ansi)
+  tput smam
 
-  file="${fleet[$option]}"
+  rm "$genFile"
+
+  number="${number%%\)*}"
+  file="${fleet[$number]}"
 
   if [[ ! -f "$file" ]]; then
     _throwError "$FILE_NOT_FOUND"
@@ -532,19 +559,21 @@ x.history() {
     xargs -P 30 -I@ bash -c "zettel.print @" <"$HISTORY"
   )
 
-  # pretty print
-  column -t -s $'\t' <"$genFile"
+  # pretty print, don't wrap text & cleanup
+  tput rmam
+  number=$(column -t -s $'\t' <"$genFile" | fzf-tmux -p 95% --ansi)
+  tput smam
+
   rm "$genFile"
 
-  read -r -p "Which file do you want to edit?: " option
+  number="${number%%\)*}"
+  file="${fleet[$number]}"
 
-  selected=${history["$option"]}
-
-  if [[ ! -f "$selected" ]]; then
+  if [[ ! -f "$file" ]]; then
     _throwError "$FILE_NOT_FOUND"
   fi
 
-  _editor "$selected"
+  _editor "$file"
 }
 
 x.history.edit() { _editor "$HISTORY"; }
@@ -693,14 +722,9 @@ zettel.isValid() {
 zettel.print() {
   local file="$1"
 
-  local black="\e[30m"
   local red="\e[31m"
-  local green="\e[32m"
-  local yellow="\e[33m"
-  local blue="\e[34m"
-  local magenta="\e[35m"
+  local yellow="\033[0;93m"
   local cyan="\e[36m"
-  local white="\e[37m"
   local reset="\e[0m"
 
   basename=$(basename "$file")
@@ -718,6 +742,7 @@ zettel.print() {
 
 history.get() {
   local -a history
+  local -a output
 
   local counter=1
   while IFS="/" read -ra zettel; do
@@ -742,6 +767,7 @@ history.get() {
 
 tag.get() {
   local -A uniqueTags tags
+  local -a output
 
   # get all tags and remove all repeated ones
   while IFS=":" read -ra lines; do
