@@ -16,7 +16,9 @@ declare -r ZET="$HOME/github.com/odas0r/zet"
 declare -r FLEET="$ZET/fleet"
 declare -r PERMANENT="$ZET/permanent"
 declare -r HISTORY="$ZET/.history"
+
 declare -r TEMPLATES="$ZET/.templates"
+declare -r ZETTEL_TEMPLATE="$TEMPLATES/zettel.tmpl.md"
 
 # Log messages
 
@@ -46,7 +48,7 @@ x.help() {
   printf '
 A personal zettelkasten program
 
-Commands:                Alias  
+Commands:                Alias
   help                           Show help commands
   new                     <n>    Create a new fleet zettel by giving it a title
   new.permanent           <np>   Create a new permanent zettel by giving it a title
@@ -58,7 +60,7 @@ Commands:                Alias
                                  select many to add to the query
   permanent               <p>    Transforms a fleet zettel into a permanent one
   remove                  <rm>   Removes a zettel .md file and cleans up all metadata (links, etc)
-  link                    <l>    Links two zettels by showing the history or giving the 
+  link                    <l>    Links two zettels by showing the history or giving the
                                  ids directly.
   tags                    <t>    Prints all the tags that are being used
   tags.edit               <te>   Prints all the tags that are being used, and
@@ -77,45 +79,40 @@ Commands:                Alias
 }
 
 x.new() {
-  local ZETTEL_TEMPLATE="$TEMPLATES/zettel.tmpl.md"
   local title="$*"
 
-  slug="$(echo "${title//\`/}" | slugify)"
-  file="$slug.$(isosec).md"
+  # cleanup title argument
+  title=${title//\`/}
 
-  if [[ -z "$file" ]] || [[ -z "$title" ]]; then
+  if [[ -z "$title" ]]; then
     _throwError "$ARGUMENTS_EMPTY"
   fi
 
-  # change path to the fleet notes
-  cd "$FLEET"
+  slug="$(echo "$title" | slugify)"
+  file="$FLEET/$slug.$(isosec).md"
 
   # create a new zettel using the `tmpl` script
   export title
   tmpl "$ZETTEL_TEMPLATE" >"$file"
 
-  _editor +3 "$file"
+  _open "$file"
 }
 
 x.new.permanent() {
-  local ZETTEL_TEMPLATE="$TEMPLATES/zettel.tmpl.md"
   local title="$*"
-
-  slug="$(echo "${title//\`/}" | slugify)"
-  file="$slug.$(isosec).md"
 
   if [[ -z "$file" ]] || [[ -z "$title" ]]; then
     _throwError "$ARGUMENTS_EMPTY"
   fi
 
-  # change path to the permanent notes
-  cd "$PERMANENT"
+  slug="$(echo "${title//\`/}" | slugify)"
+  file="$PERMANENT/$slug.$(isosec).md"
 
   # create a new zettel using the `tmpl` script
   export title
   tmpl "$ZETTEL_TEMPLATE" >"$file"
 
-  _editor +3 "$file"
+  _open "$file"
 }
 
 # Command: link
@@ -159,6 +156,9 @@ x.link() {
     options+=("${row%%\)*}")
   done
 
+  # exit linking if there's no option selected
+  [[ -z "${options[0]}" ]] && exit 1
+
   tput rmam
   optionToLink=$(column -t -s $'\t' <"$genFile" | fzf-tmux -p 95% --ansi)
   optionToLink="${optionToLink%%\)*}"
@@ -166,14 +166,12 @@ x.link() {
 
   rm "$genFile"
 
-  len=${#options[@]}
+  # exit linking if there's no option selected
+  [[ -z "$optionToLink" ]] && exit 1
 
+  len=${#options[@]}
   local counter=1
   for option in "${options[@]}"; do
-    if [[ -z $option ]]; then
-      _throwError "$ARGUMENTS_EMPTY"
-    fi
-
     fileOne=${history["$option"]}
     fileTwo=${history["$optionToLink"]}
 
@@ -246,7 +244,10 @@ x.link() {
     echo -e "\nLinks created!\n"
 
     read -r -p "Open file [y/Y]? " answer
-    [[ $answer =~ [yY](es)* ]] && nvr -s -l -c "cd $ZET" "${history["$optionToLink"]}"
+    if [[ $answer =~ [yY](es)* ]]; then
+      file=${history["$optionToLink"]}
+      _open "$file"
+    fi
   fi
 }
 
@@ -277,7 +278,9 @@ x.permanent() {
   x.fix "$permanentPath"
 
   # open the new file
-  tmux new-window -d nvr "$permanentPath"
+  if [[ -S "$NVIM_SOCKET" ]]; then
+    tmux new-window -d nvim --server "$NVIM_SOCKET" --remote-send "<C-\><C-N>:wincmd p | e $permanentPath<CR>"
+  fi
 }
 
 x.remove() {
@@ -303,8 +306,9 @@ x.remove() {
   # clear the file from the history
   sed -i "/$id/d" "$HISTORY"
 
-  # open the query panel
-  tmux new-window -d nvr -c "bdelete | Telescope live_grep"
+  if [[ -S "$NVIM_SOCKET" ]]; then
+    tmux new-window -d nvim --server "$NVIM_SOCKET" --remote-send ":bdelete<CR>"
+  fi
 }
 
 # displays all the fleet notes that need refactoring
@@ -331,8 +335,6 @@ x.backlog() {
       --exec bash -c "zettel.print {}"
   )
 
-  echo -e "\n${yellow}Total:${reset} $counter\n"
-
   # pretty print, don't wrap text & cleanup
   tput rmam
   number=$(column -t -s $'\t' <"$genFile" | fzf-tmux -p 95% --ansi)
@@ -347,12 +349,10 @@ x.backlog() {
     _throwError "$FILE_NOT_FOUND"
   fi
 
-  _editor "$file"
+  _open "$file"
 }
 
 x.backlog.week() {
-
-  echo -e "\n${yellow}Backlog of the Week${reset}\n"
 
   cd "$FLEET"
 
@@ -376,8 +376,6 @@ x.backlog.week() {
       --exec bash -c "zettel.print {}"
   )
 
-  echo -e "\n${yellow}Total:${reset} $counter\n"
-
   tput rmam
   number=$(column -t -s $'\t' <"$genFile" | fzf-tmux -p 95% --ansi)
   tput smam
@@ -391,13 +389,11 @@ x.backlog.week() {
     _throwError "$FILE_NOT_FOUND"
   fi
 
-  _editor "$file"
+  _open "$file"
 }
 
 x.backlog.today() {
   cd "$FLEET"
-
-  echo -e "\n${yellow}Backlog of Today${reset}\n"
 
   local -A fleet
 
@@ -418,7 +414,6 @@ x.backlog.today() {
       --threads 30 \
       --exec bash -c "zettel.print {}"
   )
-  echo -e "\n${yellow}Total:${reset} $counter\n"
 
   tput rmam
   number=$(column -t -s $'\t' <"$genFile" | fzf-tmux -p 95% --ansi)
@@ -433,7 +428,7 @@ x.backlog.today() {
     _throwError "$FILE_NOT_FOUND"
   fi
 
-  _editor "$file"
+  _open "$file"
 }
 
 x.info() {
@@ -441,18 +436,23 @@ x.info() {
 }
 
 x.query() {
-  cd "$PERMANENT"
+  local args="$*"
 
-  nvr -s -l -c "lua require('odas0r.telescope').search_zet({})"
+  if [[ ! -S "$NVIM_SOCKET" ]]; then
+    nvim --listen "$NVIM_SOCKET" -c "lua require('odas0r.telescope').search_zet({}) ${args}"
+  else
+    nvim --server "$NVIM_SOCKET" --remote-send "<C-\><C-N>:wincmd p | lua terminal:close()<CR>"
+    nvim --server "$NVIM_SOCKET" --remote-send "<C-\><C-N>:wincmd p | lua require('odas0r.telescope').search_zet({})<CR>i${args}"
+  fi
 }
 
 x.query.tags() {
   local -a tags=$(tag.get)
 
-  echo -e "\n${yellow}Current Tags:$reset\n"
+  local genFile="/tmp/$(isosec)"
 
   for key in "${!tags[@]}"; do
-    echo -e "$key) \e[3$((RANDOM * 6 / 32767 + 1))m${tags[$key]}$reset"
+    echo -e "$key) \e[3$((RANDOM * 6 / 32767 + 1))m${tags[$key]}$reset" >>"$genFile"
   done
 
   # add \n
@@ -470,7 +470,14 @@ x.query.tags() {
   selectedTags=${selectedTags//,\'/,}
   selectedTags=${selectedTags::-1}
 
-  nvr -s -l -c "lua require('odas0r.telescope').search_zet({$selectedTags})"
+  # open the new file
+  if [[ ! -S "$NVIM_SOCKET" ]]; then
+    nvim --listen "$NVIM_SOCKET" -c ":lua require('odas0r.telescope').search_zet({$selectedTags})"
+  else
+    # close the terminal and start writing
+    nvim --server "$NVIM_SOCKET" --remote-send "<C-\><C-N>:wincmd p | lua terminal:close()<CR>"
+    nvim --server "$NVIM_SOCKET" --remote-send "<C-\><C-N>:lua require('odas0r.telescope').search_zet({$selectedTags})<CR>i"
+  fi
 }
 
 # Fix a given zettel file
@@ -521,8 +528,10 @@ x.fix() {
     cat "$oldFilePath" >"$newFilePath"
     rm "$oldFilePath"
 
-    # open the new file
-    tmux new-window -d nvr "$newFilePath"
+    # if there's a socket open, open the new file
+    if [[ -S "$NVIM_SOCKET" ]]; then
+      nvim --server "$NVIM_SOCKET" --remote-send "<C-\><C-N>:wincmd p | e $newFilePath<CR>"
+    fi
   fi
 }
 
@@ -531,7 +540,7 @@ x.last() {
 
   cd "$ZET"
 
-  _editor "$file"
+  _open "$ZET/$file"
 }
 
 # show all the previous files opened by querying + edit
@@ -567,16 +576,16 @@ x.history() {
   rm "$genFile"
 
   number="${number%%\)*}"
-  file="${fleet[$number]}"
+  file="${history[$number]}"
 
   if [[ ! -f "$file" ]]; then
     _throwError "$FILE_NOT_FOUND"
   fi
 
-  _editor "$file"
+  _open "$file"
 }
 
-x.history.edit() { _editor "$HISTORY"; }
+x.history.edit() { _open "$HISTORY"; }
 
 x.history.insert() {
   local file="$1"
@@ -767,17 +776,18 @@ history.get() {
 
 tag.get() {
   local -A uniqueTags tags
-  local -a output
+  local -a output lines
 
-  # get all tags and remove all repeated ones
-  while IFS=":" read -ra lines; do
-    tagArr="${lines[2]/ /}"
-
-    for tag in $tagArr; do
-      uniqueTags["$tag"]="$tag"
+  while IFS=" " read -ra lines; do
+    for tag in "${lines[@]}"; do
+      # https://stackoverflow.com/questions/42065872/regex-for-a-valid-hashtag#42551826
+      if [[ "$tag" =~ (^|\s)(#[a-zA-Z\d_]+) ]]; then
+        tag=${tag/Links/} # wierd bug?
+        uniqueTags["$tag"]="$tag"
+      fi
     done
   done < <(
-    rg -e " #[a-zA-Z]" "$FLEET" "$PERMANENT"
+    fd . -e md "$FLEET" "$PERMANENT" --exec bash -c "tail -n 1 {}"
   )
 
   # format the associative array with an array index
@@ -830,8 +840,12 @@ _stacktrace() {
   echo
 }
 
-_editor() {
-  nvr -s -l -c "cd $ZET" "$@"
+_open() {
+  if [[ ! -S "$NVIM_SOCKET" ]]; then
+    nvim --listen "$NVIM_SOCKET" "$@"
+  else
+    nvim --server "$NVIM_SOCKET" --remote-send "<C-\><C-N>:wincmd p | edit $1<CR>"
+  fi
 }
 
 # --------------------- aliases ---------------------
