@@ -1,7 +1,0 @@
-# Hello Guys!
-
-
-
-## Bibliography
-
-## Links

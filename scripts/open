@@ -1,3 +1,7 @@
 #!/usr/bin/env bash
 
-nvr -s --remote +3 "$@"
+if [[ ! -S "$NVIM_SOCKET" ]]; then
+  nvim --listen "$NVIM_SOCKET" "$@"
+else
+  nvim --server "$NVIM_SOCKET" --remote-send "<C-\><C-N>:wincmd p | edit $1<CR>"
+fi

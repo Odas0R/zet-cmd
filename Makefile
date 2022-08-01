@@ -1,7 +1,6 @@
 build:
-	go build -o zet && ./zet
+	rm -f ./zet && go build -o zet ./cmd/main
+test:
+	go test ./cmd/main -v
 
-new:
-	@go build -o zet && ./zet new THis is a test title
-
-.PHONY: build
+.PHONY: build test

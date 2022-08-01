@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# if [[ ! -x "$(command -v rg)" ]]; then
+#   echo "You need to install rg"
+#   exit 1
+# fi
+
+zettelId=$1
+fleetPath=$2
+permanentPath=$3
+
+if [[ -z $zettelId ]]; then
+  echo "zettel id is missing"
+  exit 1
+elif [[ -z $fleetPath ]]; then
+  echo "fleet path is missing"
+  exit 1
+elif [[ -z $permanentPath ]]; then
+  echo "permanent path is missing"
+  exit 1
+fi
+
+rg '^.*'"$zettelId"'.*$' "$fleetPath" "$permanentPath"

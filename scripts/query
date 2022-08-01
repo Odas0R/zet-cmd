@@ -1,21 +1,10 @@
 #!/usr/bin/env bash
 
-INITIAL_QUERY="${*:-}"
-SEARCH="rg --column --line-number --no-heading --color=always --smart-case --trim"
+args="$*"
 
-IFS=: read -ra selected < <(
-  eval "$SEARCH $(printf %q "$INITIAL_QUERY")" |
-    fzf-tmux -p 95% --ansi \
-      -m \
-      -e \
-      --ansi \
-      --disabled \
-      --reverse \
-      --delimiter : \
-      --bind "ctrl-/:select-all" \
-      --bind "change:reload:$SEARCH {q} || true" \
-      --preview 'bat --theme=OneHalfDark --color=always {1} --highlight-line {2}'
-)
-
-echo "${selected[0]}"
-
+if [[ ! -S "$NVIM_SOCKET" ]]; then
+  nvim --listen "$NVIM_SOCKET" -c "lua require('odas0r.telescope').search_zet({}) ${args}"
+else
+  nvim --server "$NVIM_SOCKET" --remote-send "<C-\><C-N>:wincmd p | lua terminal:close()<CR>"
+  nvim --server "$NVIM_SOCKET" --remote-send "<C-\><C-N>:wincmd p | lua require('odas0r.telescope').search_zet({})<CR>i${args}"
+fi

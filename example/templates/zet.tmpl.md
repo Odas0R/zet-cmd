@@ -1,7 +1,0 @@
-# {{ .Title }}
-
-
-
-## Bibliography
-
-## Links
