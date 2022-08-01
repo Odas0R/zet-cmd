@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,7 +36,10 @@ func (z *Zettel) New(c *Config) error {
 	}
 
 	// assign the zettel metadata
-	z.ID = time.Now().Unix()
+	if z.ID == 0 {
+		z.ID = time.Now().Local().UTC().Unix()
+	}
+
 	z.Slug = slug.Make(z.Title)
 	z.FileName = fmt.Sprintf("%s.%d.md", z.Slug, z.ID)
 	z.Path = fmt.Sprintf("%s/%s", c.Sub.Fleet, z.FileName)
@@ -140,7 +144,6 @@ func (z *Zettel) Read() error {
 	return nil
 }
 
-// TODO
 func (z *Zettel) Link(zettel *Zettel) error {
 	// Read both zettels
 	if err := z.Read(); err != nil {
@@ -155,27 +158,9 @@ func (z *Zettel) Link(zettel *Zettel) error {
 		return errors.New("can't have duplicated links")
 	}
 
-	var lineToInsert = len(z.Lines) - 2
-	var isOnLinksSection = false
-
-	for index, line := range z.Lines {
-		if index == len(z.Lines)-1 {
-			continue
-		}
-
-		if line == "## Links" {
-			isOnLinksSection = true
-		}
-
-		if isOnLinksSection && line == "" {
-			lineToInsert = index
-			break
-		}
-	}
-
-	link := fmt.Sprintf("[%s](%s)", zettel.Title, zettel.Path)
-
 	// append on the file
+	lineToInsert := lo.IndexOf(z.Lines, "## Links") + 1
+	link := fmt.Sprintf("\n- [%s](%s)", zettel.Title, zettel.Path)
 	if err := AppendLine(z.Path, link, lineToInsert); err != nil {
 		return err
 	}
@@ -183,24 +168,30 @@ func (z *Zettel) Link(zettel *Zettel) error {
 	// append in memory
 	z.Links = append(z.Links, zettel.Path)
 
+	// Read both zettels
+	lines, err := ReadLines(z.Path)
+	if err != nil {
+		return err
+	}
+
+	z.Lines = lines
+
 	return nil
 }
 
-// TODO
 func (z *Zettel) Repair(c *Config) error {
 	if z.Path == "" {
 		return errors.New("zettel path cannot be empty")
 	}
 
-	lines, err := ReadLines(z.Path)
-	if err != nil {
+	// get the most recent lines
+	if err := z.ReadLines(); err != nil {
 		return err
 	}
 
 	//
 	// Get Metadata
 	//
-
 	basename := filepath.Base(z.Path)
 	indexOne := strings.Index(basename, ".")
 	indexTwo := strings.LastIndex(basename, ".")
@@ -216,9 +207,9 @@ func (z *Zettel) Repair(c *Config) error {
 	}
 
 	z.ID = id
-	z.Title = strings.ReplaceAll(lines[0], "# ", "")
-	z.Slug = strings.Split(filepath.Base(z.Path), ".")[0]
-	z.FileName = filepath.Base(z.Path)
+	z.Title = strings.ReplaceAll(z.Lines[0], "# ", "")
+	z.Slug = slug.Make(z.Title)
+	z.FileName = fmt.Sprintf("%s.%d.md", z.Slug, z.ID)
 
 	foldersNames := strings.Split(z.Path, "/")
 	z.Type = foldersNames[len(foldersNames)-2]
@@ -242,14 +233,103 @@ func (z *Zettel) Repair(c *Config) error {
 		return err
 	}
 
-	data, err := exec.Command(query, idStr, c.Sub.Fleet, c.Sub.Permanent).CombinedOutput()
+	data, err := exec.Command("/bin/bash", query, idStr, c.Sub.Fleet, c.Sub.Permanent).Output()
 	if err != nil {
 		return err
 	}
-	dataStr := bytes.NewBuffer(data).String()
-	fmt.Println(dataStr)
 
-	// Format the file
+	newLink := fmt.Sprintf("- [%s](%s)", z.Title, z.Path)
+	entries := strings.Split(bytes.NewBuffer(data).String(), "\n")
+
+	// go through every entry and update the dirty links
+	for _, entry := range entries[:len(entries)-1] {
+		values := strings.Split(entry, ":")
+
+		lineNr, err := strconv.ParseInt(values[0], 10, 64)
+		if err != nil {
+			return err
+		}
+
+		lineIndex := lineNr - 1
+		filepath := values[1]
+
+		zettel := &Zettel{Path: filepath}
+		if err := zettel.Read(); err != nil {
+			return err
+		}
+
+		zettel.Lines = lo.Map(zettel.Lines, func(line string, i int) string {
+      if i == int(lineIndex) {
+        return newLink
+      }
+
+      return line
+    })
+
+		if err := zettel.Write(); err != nil {
+			return err
+		}
+
+    for _, line := range zettel.Lines {
+      fmt.Println(line)
+    }
+	}
+
+	// update links
+	var isOnLinksSection = false
+	z.Links = lo.Reduce(z.Lines, func(acc []string, line string, i int) []string {
+		if i == len(z.Lines)-1 {
+			return acc
+		}
+
+		if line == "## Links" {
+			isOnLinksSection = true
+		}
+
+		if isOnLinksSection {
+			indexOne := strings.LastIndex(line, "(") + 1
+			indexTwo := strings.LastIndex(line, ")")
+
+			if indexOne != -1 && indexTwo != -1 {
+				link := line[indexOne:indexTwo]
+				return append(acc, link)
+			}
+		}
+
+		return acc
+	}, []string{})
+
+	z.Tags = lo.Filter(strings.Split(z.Lines[len(z.Lines)-1], " "), func(tag string, _ int) bool {
+		m := regexp.MustCompile(`^#\w+$`)
+		return m.FindString(tag) == tag
+	})
+
+	return nil
+}
+
+func (z *Zettel) ReadLines() error {
+	lines, err := ReadLines(z.Path)
+	if err != nil {
+		return err
+	}
+
+	// update lines
+	z.Lines = lines
+
+	return nil
+}
+
+func (z *Zettel) Write() error {
+	if err := z.Read(); err != nil {
+		return err
+	}
+
+	output := strings.Join(z.Lines, "\n")
+
+	if err := ioutil.WriteFile(z.Path, []byte(output), 0644); err != nil {
+		return err
+	}
+
 	return nil
 }
 

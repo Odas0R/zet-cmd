@@ -28,7 +28,7 @@ func AssertStringEquals(t testing.TB, expected, got string) {
 //   	got int				The int you actually got from your test result
 func AssertIntEquals(t testing.TB, expected, got int) {
 	if expected != got {
-		t.Errorf("expected '%d' != '%d' Want", expected, got)
+		t.Errorf("expected '%d' != '%d' got", expected, got)
 	}
 }
 
@@ -53,16 +53,16 @@ func AssertErrorEquals(t *testing.T, expected, got error) {
 	}
 
 	if got == nil && expected != nil {
-		t.Errorf("expected '%v' != '%v' Want", expected, got)
+		t.Errorf("expected '%v' != '%v' got", expected, got)
 		return
 	}
 	if got != nil && expected == nil {
-		t.Errorf("expected '%v' != '%v' Want", expected, got)
+		t.Errorf("expected '%v' != '%v' got", expected, got)
 		return
 	}
 
 	if expected.Error() != got.Error() {
-		t.Errorf("expected '%v' != '%v' Want", expected, got)
+		t.Errorf("expected '%v' != '%v' got", expected, got)
 		return
 	}
 }
@@ -230,12 +230,12 @@ func AssertStringArraysEqualNoOrder(t *testing.T, expected, got []string) {
 	}
 
 	if expected == nil && got != nil {
-		t.Errorf("got '%v' != '%v' expected", got, expected)
+		t.Errorf("expected '%v' != '%v' got", expected, got)
 		return
 	}
 
 	if expected != nil && got == nil {
-		t.Errorf("got '%v' != '%v' expected", got, expected)
+		t.Errorf("expected '%v' != '%v' got", expected, got)
 		return
 	}
 
