@@ -3,6 +3,6 @@ build:
 test:
 	gotestsum --format testname ./cmd/main
 watch:
-	gotestsum --watch --format standard-quiet ./cmd/main 
+	gotestsum --watch --hide-summary=skipped --format standard-quiet ./cmd/main
 
 .PHONY: build test

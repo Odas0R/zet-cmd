@@ -83,6 +83,11 @@ func (z *Zettel) Read() error {
 		return errors.New("zettel path cannot be empty")
 	}
 
+	zettelExists := FileExists(z.Path)
+	if !zettelExists {
+		return errors.New("zettel does not exist on given path")
+	}
+
 	lines, err := ReadLines(z.Path)
 	if err != nil {
 		return err
@@ -240,9 +245,10 @@ func (z *Zettel) Repair(c *Config) error {
 
 	newLink := fmt.Sprintf("- [%s](%s)", z.Title, z.Path)
 	entries := strings.Split(bytes.NewBuffer(data).String(), "\n")
+  entries = entries[:len(entries) -1] // remove last element
 
 	// go through every entry and update the dirty links
-	for _, entry := range entries[:len(entries)-1] {
+	for _, entry := range entries {
 		values := strings.Split(entry, ":")
 
 		lineNr, err := strconv.ParseInt(values[0], 10, 64)
@@ -258,21 +264,13 @@ func (z *Zettel) Repair(c *Config) error {
 			return err
 		}
 
-		zettel.Lines = lo.Map(zettel.Lines, func(line string, i int) string {
-      if i == int(lineIndex) {
-        return newLink
-      }
-
-      return line
-    })
+		zettel.Lines = lo.ReplaceAll(zettel.Lines, zettel.Lines[lineIndex], newLink)
 
 		if err := zettel.Write(); err != nil {
 			return err
 		}
 
-    for _, line := range zettel.Lines {
-      fmt.Println(line)
-    }
+    fmt.Printf("zettel.Lines: %v\n", zettel.Lines)
 	}
 
 	// update links
@@ -320,10 +318,6 @@ func (z *Zettel) ReadLines() error {
 }
 
 func (z *Zettel) Write() error {
-	if err := z.Read(); err != nil {
-		return err
-	}
-
 	output := strings.Join(z.Lines, "\n")
 
 	if err := ioutil.WriteFile(z.Path, []byte(output), 0644); err != nil {

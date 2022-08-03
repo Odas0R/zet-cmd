@@ -3,11 +3,13 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/samber/lo"
 )
 
 func TestZettel(t *testing.T) {
@@ -124,7 +126,7 @@ func TestZettel(t *testing.T) {
 
 	})
 
-	t.Run("can repair a zettel filename on title change", func(t *testing.T) {
+	t.Run("can repair zettel links (1)", func(t *testing.T) {
 		zettelOne := &Zettel{ID: 1224, Title: "This is a foo title"}
 		zettelOne.New(c)
 
@@ -134,20 +136,23 @@ func TestZettel(t *testing.T) {
 		zettelThree := &Zettel{ID: 1243, Title: "This is a bye title"}
 		zettelThree.New(c)
 
-		zettelTwo.Link(zettelOne)
-		zettelThree.Link(zettelOne)
-
-		fmt.Println(zettelOne.Path, zettelTwo.Path, zettelThree.Path)
+		if err := zettelTwo.Link(zettelOne); err != nil {
+			t.Errorf("error: failed to link zettel")
+		}
+		if err := zettelThree.Link(zettelOne); err != nil {
+			t.Errorf("error: failed to link zettel")
+		}
 
 		// modify the title
-		lines := zettelOne.Lines
-		lines[0] = "# foo bar"
-		linesWithEndLine := strings.Join(lines, "\n")
-		ioutil.WriteFile(zettelOne.Path, []byte(linesWithEndLine), 0644)
+		zettelOne.Lines = lo.ReplaceAll(zettelOne.Lines, zettelOne.Lines[0], "# foo bar")
+		if err := zettelOne.Write(); err != nil {
+			t.Errorf("error: failed to write zettel")
+		}
 
 		// repair zettel
-		err := zettelOne.Repair(c)
-		ExpectNoError(t, err, "error: failed to repair zettel")
+		if err := zettelOne.Repair(c); err != nil {
+			t.Errorf("error: failed to repair zettel")
+		}
 
 		AssertStringEquals(t, "foo bar", zettelOne.Title)
 		AssertStringEquals(t, "# foo bar", zettelOne.Lines[0])
@@ -159,25 +164,53 @@ func TestZettel(t *testing.T) {
 		zettelTwo.Read()
 		zettelThree.Read()
 
-		// link := fmt.Sprintf("- [%s](%s)", zettelOne.Title, zettelOne.Path)
-    // for _, line := range zettelTwo.Lines {
-    //   fmt.Println(line)
-    // }
-    // for _, line := range zettelThree.Lines {
-    //   fmt.Println(line)
-    // }
+		link := fmt.Sprintf("- [%s](%s)", zettelOne.Title, zettelOne.Path)
 
 		// Check if links are present on the files
-		AssertStringContainsSubstringsNoOrder(t, strings.Join(zettelTwo.Lines, " "), []string{zettelOne.Path})
-		AssertStringContainsSubstringsNoOrder(t, strings.Join(zettelThree.Lines, " "), []string{zettelOne.Path})
+		AssertStringContainsSubstringsNoOrder(t, strings.Join(zettelTwo.Lines, " "), []string{link})
+		AssertStringContainsSubstringsNoOrder(t, strings.Join(zettelThree.Lines, " "), []string{link})
+	})
 
-		// AssertStringContainsSubstringsNoOrder(t, strings.Join(zettelTwo.Links, " "), []string{link})
-		// AssertStringContainsSubstringsNoOrder(t, strings.Join(zettelThree.Links, " "), []string{link})
+	t.Run("can repair zettel links (2)", func(t *testing.T) {
+		zettelOne := &Zettel{Path: fmt.Sprintf("%s/%s", c.Sub.Fleet, "foo-bar.1224.md")}
+		zettelTwo := &Zettel{Path: fmt.Sprintf("%s/%s", c.Sub.Fleet, "this-is-a-boo-title.1241.md")}
+		zettelThree := &Zettel{Path: fmt.Sprintf("%s/%s", c.Sub.Fleet, "this-is-a-bye-title.1243.md")}
+
+		if err := zettelOne.Link(zettelTwo); err != nil {
+			t.Errorf("error: failed to link zettel")
+		}
+		if err := zettelOne.Link(zettelThree); err != nil {
+			t.Errorf("error: failed to link zettel")
+		}
+
+		// Modify zettelTwo
+		zettelTwo.Lines = lo.ReplaceAll(zettelTwo.Lines, zettelTwo.Lines[0], "# changed title")
+		if err := zettelTwo.Write(); err != nil {
+			t.Errorf("error: failed to write zettel")
+		}
+		if err := zettelTwo.Repair(c); err != nil {
+			t.Errorf("error: failed to repair zettel")
+		}
+
+		link := fmt.Sprintf("- [%s](%s)", zettelTwo.Title, zettelTwo.Path)
+		AssertStringContainsSubstringsNoOrder(t, strings.Join(zettelOne.Lines, " "), []string{link})
+
+		// Modify zettelThree
+		zettelThree.Lines = lo.ReplaceAll(zettelThree.Lines, zettelThree.Lines[0], "# pretty different")
+		if err := zettelThree.Write(); err != nil {
+			t.Errorf("error: failed to write zettel")
+		}
+		if err := zettelThree.Repair(c); err != nil {
+			t.Errorf("error: failed to repair zettel")
+		}
+
+		link = fmt.Sprintf("- [%s](%s)", zettelThree.Title, zettelThree.Path)
+		AssertStringContainsSubstringsNoOrder(t, strings.Join(zettelOne.Lines, " "), []string{link})
 	})
 
 	// cleanup
-	// err := os.RemoveAll("/tmp/foo")
-	// if err != nil {
-	// 	t.Errorf("error: failed to cleanup")
-	// }
+	err := os.RemoveAll("/tmp/foo")
+	if err != nil {
+		t.Errorf("error: failed to cleanup")
+	}
 }
