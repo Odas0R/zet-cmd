@@ -78,14 +78,18 @@ func (z *Zettel) New(c *Config) error {
 	return nil
 }
 
-func (z *Zettel) Read() error {
+func (z *Zettel) Read(c *Config) error {
 	if z.Path == "" {
-		return errors.New("zettel path cannot be empty")
+		return errors.New("error: zettel path cannot be empty")
+	}
+
+	if !strings.HasPrefix(z.Path, c.Path) {
+		return errors.New("error: zettel does not exist on given path")
 	}
 
 	zettelExists := FileExists(z.Path)
 	if !zettelExists {
-		return errors.New("zettel does not exist on given path")
+		return errors.New("error: zettel does not exist on given path")
 	}
 
 	lines, err := ReadLines(z.Path)
@@ -150,50 +154,30 @@ func (z *Zettel) Read() error {
 }
 
 func (z *Zettel) Link(zettel *Zettel) error {
-	// Read both zettels
-	if err := z.Read(); err != nil {
-		return err
-	}
-	if err := zettel.Read(); err != nil {
-		return err
-	}
-
-	hasLink := lo.Contains(z.Links, zettel.Path)
-	if hasLink {
-		return errors.New("can't have duplicated links")
-	}
-
-	// append on the file
-	lineToInsert := lo.IndexOf(z.Lines, "## Links") + 1
-	link := fmt.Sprintf("\n- [%s](%s)", zettel.Title, zettel.Path)
-	if err := AppendLine(z.Path, link, lineToInsert); err != nil {
-		return err
-	}
-
-	// append in memory
-	z.Links = append(z.Links, zettel.Path)
-
-	// Read both zettels
+	// read the file and check if there's a link
 	lines, err := ReadLines(z.Path)
 	if err != nil {
 		return err
 	}
 
-	z.Lines = lines
+	link := fmt.Sprintf("- [%s](%s)", zettel.Title, zettel.Path)
+
+	// check if link already exists
+	if hasLink := lo.Contains(lines, link); hasLink {
+		return errors.New("error: cannot have duplicated links")
+	}
+
+	// append on the file
+	lineToInsert := lo.IndexOf(z.Lines, "## Links") + 1
+	link = fmt.Sprintf("\n- [%s](%s)", zettel.Title, zettel.Path)
+	if err := AppendLine(z.Path, link, lineToInsert); err != nil {
+		return err
+	}
 
 	return nil
 }
 
 func (z *Zettel) Repair(c *Config) error {
-	if z.Path == "" {
-		return errors.New("zettel path cannot be empty")
-	}
-
-	// get the most recent lines
-	if err := z.ReadLines(); err != nil {
-		return err
-	}
-
 	//
 	// Get Metadata
 	//
@@ -205,7 +189,6 @@ func (z *Zettel) Repair(c *Config) error {
 	}
 
 	idStr := basename[indexOne+1 : indexTwo]
-
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		return err
@@ -245,7 +228,7 @@ func (z *Zettel) Repair(c *Config) error {
 
 	newLink := fmt.Sprintf("- [%s](%s)", z.Title, z.Path)
 	entries := strings.Split(bytes.NewBuffer(data).String(), "\n")
-  entries = entries[:len(entries) -1] // remove last element
+	entries = entries[:len(entries)-1] // remove last element
 
 	// go through every entry and update the dirty links
 	for _, entry := range entries {
@@ -260,7 +243,7 @@ func (z *Zettel) Repair(c *Config) error {
 		filepath := values[1]
 
 		zettel := &Zettel{Path: filepath}
-		if err := zettel.Read(); err != nil {
+		if err := zettel.Read(c); err != nil {
 			return err
 		}
 
@@ -269,8 +252,6 @@ func (z *Zettel) Repair(c *Config) error {
 		if err := zettel.Write(); err != nil {
 			return err
 		}
-
-    fmt.Printf("zettel.Lines: %v\n", zettel.Lines)
 	}
 
 	// update links
@@ -327,18 +308,18 @@ func (z *Zettel) Write() error {
 	return nil
 }
 
-// func (z *Zettel) isValid() bool {
-// 	if z.Path == "" {
-// 		return false
-// 	}
-//
-// 	existsZettel := FileExists(z.Path)
-// 	if !existsZettel {
-// 		return false
-// 	}
-//
-// 	return true
-// }
+func (z *Zettel) WriteLine(index int, newLine string) error {
+	// modify z.Lines
+	copy(z.Lines[index:], []string{newLine})
+
+	output := strings.Join(z.Lines, "\n")
+
+	if err := ioutil.WriteFile(z.Path, []byte(output), 0644); err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func (z *Zettel) Permanent(c *Config) error {
 	newPath := fmt.Sprintf("%s/%s", c.Sub.Permanent, z.FileName)
@@ -349,11 +330,8 @@ func (z *Zettel) Permanent(c *Config) error {
 	// update the path
 	z.Path = newPath
 
-	// TODO
 	// fix all broken links
-
-	// Update the file
-	if err := z.Read(); err != nil {
+	if err := z.Repair(c); err != nil {
 		return err
 	}
 
