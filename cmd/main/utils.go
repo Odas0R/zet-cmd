@@ -11,9 +11,6 @@ import (
 func FileExists(filePath string) bool {
 	_, err := os.Stat(filePath)
 	return !errors.Is(err, fs.ErrNotExist)
-
-	// _, err := os.Open(filePath)
-	// return !errors.Is(err, fs.ErrNotExist)
 }
 
 func ReadLines(filePath string) ([]string, error) {

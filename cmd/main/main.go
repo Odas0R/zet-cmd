@@ -11,8 +11,8 @@ import (
 
 func main() {
 
-	config := &Config{Root: "/tmp/foo"}
-	history := &History{Root: "/tmp/foo"}
+	config := &Config{Root: os.Getenv("ZET")}
+	history := &History{Root: os.Getenv("ZET")}
 
 	// initialize config
 	if err := config.Init(); err != nil {
@@ -54,7 +54,7 @@ func main() {
 						return err
 					}
 
-					if err := zettel.Open(config); err != nil {
+					if err := zettel.Open(config, 0); err != nil {
 						return err
 					}
 
@@ -66,7 +66,13 @@ func main() {
 				Aliases: []string{"q"},
 				Usage:   "",
 				Action: func(c *cli.Context) error {
-					if err := Query("", config); err != nil {
+					path, line, err := Query("", config)
+					if err != nil {
+						return err
+					}
+
+					zettel := &Zettel{Path: path}
+					if err := zettel.Open(config, line); err != nil {
 						return err
 					}
 
@@ -90,7 +96,7 @@ func main() {
 						return err
 					}
 
-					if err := zettel.Open(config); err != nil {
+					if err := zettel.Open(config, 0); err != nil {
 						return err
 					}
 

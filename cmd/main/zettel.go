@@ -343,8 +343,8 @@ func (z *Zettel) Permanent(c *Config, h *History) error {
 	return nil
 }
 
-func (z *Zettel) Open(c *Config) error {
-	if err := Open(c, z.Path); err != nil {
+func (z *Zettel) Open(c *Config, lineNr int) error {
+	if err := Open(c, z.Path, lineNr); err != nil {
 		return err
 	}
 

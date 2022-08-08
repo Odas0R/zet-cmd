@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# https://github.com/junegunn/fzf/blob/master/ADVANCED.md#ripgrep-integration
+
 INITIAL_QUERY="${1:-}"
 FLEET_PATH="$2"
 PERM_PATH="$3"
@@ -22,6 +24,7 @@ IFS=: read -ra selected < <(
     --delimiter : \
     --header '╱ CTRL-R (Ripgrep mode) ╱ CTRL-F (fzf mode) ╱' \
     --preview 'batcat --theme=gruvbox-dark --color=always {1} --highlight-line {2}' \
+    --preview-window right:50%
 )
 
-echo "${selected[1]}:${selected[0]}"
+[[ -n "${selected[0]}" ]] && echo "${selected[1]}:${selected[0]}"

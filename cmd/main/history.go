@@ -45,7 +45,7 @@ func (h *History) Query(config *Config) (string, error) {
 		return "", err
 	}
 
-	return bytes.NewBuffer(value).String(), nil
+	return strings.TrimSpace(bytes.NewBuffer(value).String()), nil
 }
 
 func (h *History) Insert(path string) error {
@@ -100,7 +100,7 @@ func (h *History) Delete(path string) error {
 }
 
 func (h *History) Open(c *Config) error {
-	if err := Open(c, h.Path); err != nil {
+	if err := Open(c, h.Path, 0); err != nil {
 		return err
 	}
 

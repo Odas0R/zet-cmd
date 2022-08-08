@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 if [[ ! -S "$NVIM_SOCKET" ]]; then
-  nvim --listen "$NVIM_SOCKET" "${1}"
+  nvim "+${2}" --listen "$NVIM_SOCKET" "${1}"
 else
   nvim --server "$NVIM_SOCKET" --remote-send "<C-\><C-N>:wincmd p | edit ${1}<CR>"
+  nvim --server "$NVIM_SOCKET" --remote-send "<C-\><C-N>:${2}<CR>"
 fi
