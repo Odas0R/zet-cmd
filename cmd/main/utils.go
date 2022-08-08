@@ -3,13 +3,22 @@ package main
 import (
 	"bufio"
 	"errors"
+	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
 )
 
 func FileExists(filePath string) bool {
-	_, error := os.Stat(filePath)
-	return !errors.Is(error, os.ErrNotExist)
+	_, err := os.Stat(filePath)
+	if err != nil {
+    fmt.Printf("err: %v\n", err)
+		if errors.Is(err, fs.ErrNotExist) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func ReadLines(filePath string) ([]string, error) {

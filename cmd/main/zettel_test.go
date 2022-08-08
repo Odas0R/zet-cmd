@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -13,12 +12,21 @@ import (
 )
 
 func TestZettel(t *testing.T) {
-	// initialize the config
-	c := &Config{Path: "/tmp/foo"}
-	c.Init()
+	c := &Config{Root: "/tmp/foo"}
+	h := &History{Root: "/tmp/foo"}
+
+	// initialize config
+	if err := c.Init(); err != nil {
+		t.Errorf("error: failed to initialize config %V", err)
+	}
+
+	// initialize history
+	if err := h.Init(); err != nil {
+		t.Errorf("error: failed to initialize history %V", err)
+	}
 
 	t.Run("can create a zettel", func(t *testing.T) {
-		zettel := &Zettel{Title: "This is a foo title"}
+		zettel := &Zettel{ID: 1, Title: "This is a foo title"}
 
 		if err := zettel.New(c); err != nil {
 			t.Errorf("error: %s", err)
@@ -26,7 +34,7 @@ func TestZettel(t *testing.T) {
 	})
 
 	t.Run("zettel has correct metadata", func(t *testing.T) {
-		zettel := &Zettel{Title: "This is a foo title"}
+		zettel := &Zettel{ID: 2, Title: "This is a foo title"}
 
 		if err := zettel.New(c); err != nil {
 			t.Errorf("error: %s", err)
@@ -38,7 +46,7 @@ func TestZettel(t *testing.T) {
 	})
 
 	t.Run("zettel file exists", func(t *testing.T) {
-		zettel := &Zettel{Title: "This is a foo title"}
+		zettel := &Zettel{ID: 3, Title: "This is a foo title"}
 
 		if err := zettel.New(c); err != nil {
 			t.Errorf("error: %s", err)
@@ -50,7 +58,7 @@ func TestZettel(t *testing.T) {
 	})
 
 	t.Run("got the correct lines from the zettel template file", func(t *testing.T) {
-		zettel := &Zettel{Title: "This is a foo title"}
+		zettel := &Zettel{ID: 4, Title: "This is a foo title"}
 		if err := zettel.New(c); err != nil {
 			t.Errorf("error: %s", err)
 		}
@@ -60,7 +68,7 @@ func TestZettel(t *testing.T) {
 	})
 
 	t.Run("can read a zettel on a given path", func(t *testing.T) {
-		zettelStub := &Zettel{Title: "This is a foo title"}
+		zettelStub := &Zettel{ID: 5, Title: "This is a foo title"}
 		if err := zettelStub.New(c); err != nil {
 			t.Errorf("error: %s", err)
 		}
@@ -78,8 +86,8 @@ func TestZettel(t *testing.T) {
 	})
 
 	t.Run("can link a zettel and read his links", func(t *testing.T) {
-		zettelOne := &Zettel{Title: "This is a foo title"}
-		zettelTwo := &Zettel{Title: "This is a another title"}
+		zettelOne := &Zettel{ID: 6, Title: "This is a foo title"}
+		zettelTwo := &Zettel{ID: 7, Title: "This is a another title"}
 
 		if err := zettelOne.New(c); err != nil {
 			t.Errorf("error: %s", err)
@@ -91,9 +99,9 @@ func TestZettel(t *testing.T) {
 		if err := zettelOne.Link(zettelTwo); err != nil {
 			t.Errorf("error: %s", err)
 		}
-    if err := zettelTwo.Link(zettelOne); err != nil {
+		if err := zettelTwo.Link(zettelOne); err != nil {
 			t.Errorf("error: %s", err)
-    }
+		}
 
 		if err := zettelOne.Read(c); err != nil {
 			t.Errorf("error: %s", err)
@@ -109,8 +117,8 @@ func TestZettel(t *testing.T) {
 	})
 
 	t.Run("cant link same zettel twice", func(t *testing.T) {
-		zettelOne := &Zettel{Title: "This is a foo title"}
-		zettelTwo := &Zettel{Title: "This is a another title"}
+		zettelOne := &Zettel{ID: 9, Title: "This is a foo title"}
+		zettelTwo := &Zettel{ID: 10, Title: "This is a another title"}
 
 		// create zettels
 		if err := zettelOne.New(c); err != nil {
@@ -153,11 +161,9 @@ func TestZettel(t *testing.T) {
 			t.Errorf("error: %s", err)
 		}
 
-		script, err := filepath.Abs("../../scripts/find-links")
-		if err != nil {
-			t.Errorf("error: %s", err)
-		}
-		output, err := exec.Command(script, "1324", c.Sub.Fleet, c.Sub.Permanent).Output()
+		cmd := exec.Command("/bin/bash", c.Scripts.FindLinks, "1324", c.Sub.Fleet, c.Sub.Permanent)
+
+		output, err := cmd.Output()
 		if err != nil {
 			t.Errorf("error: %s", err)
 		}
@@ -179,31 +185,31 @@ func TestZettel(t *testing.T) {
 		zettelThree := &Zettel{ID: 1243, Title: "This is a bye title"}
 
 		if err := zettelOne.New(c); err != nil {
-			t.Errorf("error: %s", err)
+			t.Errorf("error: failed to link zettel %s", err)
 		}
 		if err := zettelTwo.New(c); err != nil {
-			t.Errorf("error: %s", err)
+			t.Errorf("error: failed to link zettel %s", err)
 		}
 		if err := zettelThree.New(c); err != nil {
-			t.Errorf("error: %s", err)
+			t.Errorf("error: failed to link zettel %s", err)
 		}
 
 		if err := zettelTwo.Link(zettelOne); err != nil {
-			t.Errorf("error: %s", err)
+			t.Errorf("error: failed to link zettel %s", err)
 		}
 		if err := zettelThree.Link(zettelOne); err != nil {
-			t.Errorf("error: %s", err)
+			t.Errorf("error: failed to link zettel %s", err)
 		}
 
 		// modify the title
 		zettelOne.Lines = lo.ReplaceAll(zettelOne.Lines, zettelOne.Lines[0], "# foo bar")
 		if err := zettelOne.Write(); err != nil {
-			t.Errorf("error: %s", err)
+			t.Errorf("error: failed to write zettel %s", err)
 		}
 
 		// repair zettel
-		if err := zettelOne.Repair(c); err != nil {
-			t.Errorf("error: %s", err)
+		if err := zettelOne.Repair(c, h); err != nil {
+			t.Errorf("error: failed to repair zettel %s", err)
 		}
 
 		AssertStringEquals(t, "foo bar", zettelOne.Title)
@@ -259,7 +265,7 @@ func TestZettel(t *testing.T) {
 			t.Errorf("error: %s", err)
 		}
 
-		if err := zettelTwo.Repair(c); err != nil {
+		if err := zettelTwo.Repair(c, h); err != nil {
 			t.Errorf("error: %s", err)
 		}
 		if err := zettelOne.Read(c); err != nil {
@@ -276,7 +282,7 @@ func TestZettel(t *testing.T) {
 		if err := zettelThree.Read(c); err != nil {
 			t.Errorf("error: %s", err)
 		}
-		if err := zettelThree.Repair(c); err != nil {
+		if err := zettelThree.Repair(c, h); err != nil {
 			t.Errorf("error: %s", err)
 		}
 
@@ -310,8 +316,7 @@ func TestZettel(t *testing.T) {
 		if err := zettelThree.Link(zettelOne); err != nil {
 			t.Errorf("error: %s", err)
 		}
-
-		if err := zettelOne.Permanent(c); err != nil {
+		if err := zettelOne.Permanent(c, h); err != nil {
 			t.Errorf("error: %s", err)
 		}
 

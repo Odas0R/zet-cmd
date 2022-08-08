@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-func TestConfigInit(t *testing.T) {
-	c := Config{Path: "/tmp/foo"}
+func TestConfig(t *testing.T) {
+	c := Config{Root: "/tmp/foo"}
 
 	t.Run("can initialize config", func(t *testing.T) {
 		err := c.Init()
@@ -14,7 +14,7 @@ func TestConfigInit(t *testing.T) {
 	})
 
 	t.Run("config has the right values", func(t *testing.T) {
-		AssertStringEquals(t, "/tmp/foo", c.Path)
+		AssertStringEquals(t, "/tmp/foo", c.Root)
 		AssertStringEquals(t, "/tmp/foo/assets", c.Sub.Assets)
 		AssertStringEquals(t, "/tmp/foo/journal", c.Sub.Journal)
 		AssertStringEquals(t, "/tmp/foo/templates", c.Sub.Templates)

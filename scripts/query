@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 
-args="$*"
-
 if [[ ! -S "$NVIM_SOCKET" ]]; then
-  nvim --listen "$NVIM_SOCKET" -c "lua require('odas0r.telescope').search_zet({}) ${args}"
+  nvim --listen "$NVIM_SOCKET" -c "lua require('odas0r.zet').search(\"${1}\",{${2}})"
 else
   nvim --server "$NVIM_SOCKET" --remote-send "<C-\><C-N>:wincmd p | lua terminal:close()<CR>"
-  nvim --server "$NVIM_SOCKET" --remote-send "<C-\><C-N>:wincmd p | lua require('odas0r.telescope').search_zet({})<CR>i${args}"
+  nvim --server "$NVIM_SOCKET" --remote-send "<C-\><C-N>:wincmd p | lua require('odas0r.zet').search(\"${1}\",{${2}})<CR>i"
 fi

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [[ ! -x "$(command -v rg)" ]]; then
   echo "You need to install rg"

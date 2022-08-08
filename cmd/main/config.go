@@ -2,39 +2,54 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"path"
 )
 
-const ZET_PATH = "/home/odas0r/github.com/odas0r/zet-cmd"
+const (
+	ZET_EXECUTABLE_PATH = "/home/odas0r/github.com/odas0r/zet-cmd"
+)
 
 type Sub struct {
-	Templates string `json:"-"`
-	Fleet     string `json:"-"`
-	Permanent string `json:"-"`
-	Journal   string `json:"-"`
-	Assets    string `json:"-"`
+	Templates string
+	Fleet     string
+	Permanent string
+	Journal   string
+	Assets    string
+}
+
+type Scripts struct {
+	Fzf       string
+	Open      string
+	FindLinks string
+	Query     string
 }
 
 type Config struct {
-	Path string `json:"path"`
-	Sub  Sub
+	Root    string
+	Scripts Scripts
+	Sub     Sub
 }
 
-func (c *Config) Init() (error) {
-  if c.Path == "" {
-    return errors.New("Config path cannot be an empty string")
+func (c *Config) Init() error {
+	if c.Root == "" {
+		return errors.New("Config path cannot be an empty string")
+	}
+
+	if err := initFolderLayout(c); err != nil {
+		return err
+	}
+
+  if err := initScripts(c); err != nil {
+    return err
   }
 
-  if error := initFolderLayout(c); error != nil {
-    return error
-  }
-
-  return nil
+	return nil
 }
 
 func initFolderLayout(config *Config) error {
 	var (
-		root      = config.Path
+		root      = config.Root
 		templates = path.Join(root, "templates")
 		assets    = path.Join(root, "assets")
 		permanent = path.Join(root, "permanent")
@@ -60,12 +75,12 @@ func initFolderLayout(config *Config) error {
 	}
 
 	// create templates/journal.tmpl.md
-	if err := Cat(journalTmpl, path.Join(templates, "journal.tmpl.md")); err != nil {
+	if err := CreateFile(journalTmpl, path.Join(templates, "journal.tmpl.md")); err != nil {
 		return err
 	}
 
 	// create templates/zet.tmpl.md
-	if err := Cat(zetTmpl, path.Join(templates, "zet.tmpl.md")); err != nil {
+	if err := CreateFile(zetTmpl, path.Join(templates, "zet.tmpl.md")); err != nil {
 		return err
 	}
 
@@ -88,6 +103,39 @@ func initFolderLayout(config *Config) error {
 	if err := Mkdir(journal); err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func initScripts(config *Config) error {
+	var (
+		root = ZET_EXECUTABLE_PATH
+	)
+
+	// setup auxiliary paths
+	script := path.Join(root, "scripts/query")
+	if exists := FileExists(script); !exists {
+		return fmt.Errorf("error: script 'query' does not exist on %s", script)
+	}
+	config.Scripts.Query = script
+
+	script = path.Join(root, "scripts/fzf")
+	if exists := FileExists(script); !exists {
+		return fmt.Errorf("error: script 'fzf' does not exist on %s", script)
+	}
+	config.Scripts.Fzf = script
+
+	script = path.Join(root, "scripts/open")
+	if exists := FileExists(script); !exists {
+		return fmt.Errorf("error: script 'open' does not exist on %s", script)
+	}
+	config.Scripts.Open = script
+
+	script = path.Join(root, "scripts/find-links")
+	if exists := FileExists(script); !exists {
+		return fmt.Errorf("error: script 'find-links' does not exist on %s", script)
+	}
+	config.Scripts.FindLinks = path.Join(root, "scripts/find-links")
 
 	return nil
 }

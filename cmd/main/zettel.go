@@ -83,12 +83,11 @@ func (z *Zettel) Read(c *Config) error {
 		return errors.New("error: zettel path cannot be empty")
 	}
 
-	if !strings.HasPrefix(z.Path, c.Path) {
-		return errors.New("error: zettel does not exist on given path")
+	if !strings.Contains(z.Path, c.Root) {
+		return errors.New("error: file is not under the root path")
 	}
 
-	zettelExists := FileExists(z.Path)
-	if !zettelExists {
+	if fileExists := FileExists(z.Path); !fileExists {
 		return errors.New("error: zettel does not exist on given path")
 	}
 
@@ -177,7 +176,7 @@ func (z *Zettel) Link(zettel *Zettel) error {
 	return nil
 }
 
-func (z *Zettel) Repair(c *Config) error {
+func (z *Zettel) Repair(c *Config, h *History) error {
 	//
 	// Get Metadata
 	//
@@ -206,22 +205,24 @@ func (z *Zettel) Repair(c *Config) error {
 	// Fix title
 	//
 
-	newPath := fmt.Sprintf("%s/%s/%s", c.Path, z.Type, z.FileName)
-	if err := os.Rename(z.Path, newPath); err != nil {
+	oldPath := z.Path
+	newPath := fmt.Sprintf("%s/%s/%s", c.Root, z.Type, z.FileName)
+	if err := os.Rename(oldPath, newPath); err != nil {
 		return err
 	}
 
 	z.Path = newPath
 
+	// Fix the history
+	h.Delete(oldPath)
+	h.Insert(newPath)
+
 	//
 	// Fix the broken links on other zettels
 	//
-	query, err := filepath.Abs("../../scripts/find-links")
-	if err != nil {
-		return err
-	}
+	cmd := exec.Command("/bin/bash", c.Scripts.FindLinks, idStr, c.Sub.Fleet, c.Sub.Permanent)
 
-	data, err := exec.Command("/bin/bash", query, idStr, c.Sub.Fleet, c.Sub.Permanent).Output()
+	data, err := cmd.Output()
 	if err != nil {
 		return err
 	}
@@ -308,6 +309,10 @@ func (z *Zettel) Write() error {
 	return nil
 }
 
+// func (z *Zettel) Delete() error {
+// 	return nil
+// }
+
 func (z *Zettel) WriteLine(index int, newLine string) error {
 	// modify z.Lines
 	copy(z.Lines[index:], []string{newLine})
@@ -321,7 +326,7 @@ func (z *Zettel) WriteLine(index int, newLine string) error {
 	return nil
 }
 
-func (z *Zettel) Permanent(c *Config) error {
+func (z *Zettel) Permanent(c *Config, h *History) error {
 	newPath := fmt.Sprintf("%s/%s", c.Sub.Permanent, z.FileName)
 	if err := os.Rename(z.Path, newPath); err != nil {
 		return err
@@ -331,21 +336,15 @@ func (z *Zettel) Permanent(c *Config) error {
 	z.Path = newPath
 
 	// fix all broken links
-	if err := z.Repair(c); err != nil {
+	if err := z.Repair(c, h); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (z *Zettel) Open() error {
-	query, err := filepath.Abs("./scripts/open")
-	if err != nil {
-		return err
-	}
-
-	cmd := exec.Command("/bin/bash", query, z.Path)
-	if err := cmd.Start(); err != nil {
+func (z *Zettel) Open(c *Config) error {
+	if err := Open(c, z.Path); err != nil {
 		return err
 	}
 

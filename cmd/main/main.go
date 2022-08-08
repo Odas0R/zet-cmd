@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"os"
 	"strings"
@@ -10,10 +11,18 @@ import (
 
 func main() {
 
-	config := &Config{Path: "/tmp/foo"}
+	config := &Config{Root: "/tmp/foo"}
+	history := &History{Root: "/tmp/foo"}
 
 	// initialize config
-	config.Init()
+	if err := config.Init(); err != nil {
+		log.Fatalf("error: failed to initialize config %V", err)
+	}
+
+	// initialize history
+	if err := history.Init(); err != nil {
+		log.Fatalf("error: failed to initialize history %V", err)
+	}
 
 	app := &cli.App{
 		Name:    "zet",
@@ -45,7 +54,7 @@ func main() {
 						return err
 					}
 
-					if err := zettel.Open(); err != nil {
+					if err := zettel.Open(config); err != nil {
 						return err
 					}
 
@@ -57,11 +66,101 @@ func main() {
 				Aliases: []string{"q"},
 				Usage:   "",
 				Action: func(c *cli.Context) error {
-					if err := Query(); err != nil {
+					if err := Query(config, nil); err != nil {
 						return err
 					}
 
 					return nil
+				},
+			},
+			{
+				Name:    "history",
+				Aliases: []string{"h"},
+				Usage:   "",
+				Action: func(c *cli.Context) error {
+					path, err := history.Query(config)
+					if err != nil {
+						return err
+					}
+
+					zettel := &Zettel{Path: path}
+
+					// validate zettel
+					if err := zettel.Read(config); err != nil {
+						return err
+					}
+
+					if err := zettel.Open(config); err != nil {
+						return err
+					}
+
+					return nil
+				},
+				Subcommands: []*cli.Command{
+					{
+						Name:  "insert",
+						Usage: "",
+						Action: func(c *cli.Context) error {
+							if c.NArg() == 0 {
+								return errors.New("error: empty arguments")
+							}
+
+							path := strings.Join(c.Args().Slice(), "")
+
+							if err := history.Insert(path); err != nil {
+								return err
+							}
+
+							return nil
+						},
+					},
+					{
+						Name:  "delete",
+						Usage: "",
+						Action: func(c *cli.Context) error {
+							if c.NArg() == 0 {
+								return errors.New("error: empty arguments")
+							}
+
+							path := strings.Join(c.Args().Slice(), "")
+
+							if err := history.Delete(path); err != nil {
+								return err
+							}
+
+							return nil
+						},
+					},
+					{
+						Name:  "edit",
+						Usage: "",
+						Action: func(c *cli.Context) error {
+							if err := history.Open(config); err != nil {
+								return err
+							}
+
+							return nil
+						},
+					},
+					{
+						Name:  "repair",
+						Usage: "",
+						Action: func(c *cli.Context) error {
+							if c.NArg() == 0 {
+								return errors.New("error: empty arguments")
+							}
+
+							path := strings.Join(c.Args().Slice(), "")
+
+							zettel := &Zettel{Path: path}
+
+							if err := zettel.Repair(config, history); err != nil {
+								return err
+							}
+
+							return nil
+						},
+					},
 				},
 			},
 			{

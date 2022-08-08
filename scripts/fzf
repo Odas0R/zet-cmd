@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+echo "$1" | fzf-tmux -p 95% --ansi
