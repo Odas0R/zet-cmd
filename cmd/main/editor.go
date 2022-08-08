@@ -2,23 +2,12 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
-	"strings"
-
-	"github.com/samber/lo"
 )
 
-func Query(c *Config, tags []string) error {
-	// Format tags
-	tagsFormatted := lo.Map(tags, func(tag string, i int) string {
-		return fmt.Sprintf("\"%s\"", tag)
-	})
-	tagsStr := strings.Join(tagsFormatted, ",")
-
-	// Execute the script query
-	cmd := exec.Command("/bin/bash", c.Scripts.Query, c.Root, tagsStr)
+func Query(initial string, c *Config) error {
+	cmd := exec.Command("/bin/bash", c.Scripts.Query, initial, c.Sub.Fleet, c.Sub.Permanent)
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr

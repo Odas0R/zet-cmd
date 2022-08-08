@@ -66,7 +66,7 @@ func main() {
 				Aliases: []string{"q"},
 				Usage:   "",
 				Action: func(c *cli.Context) error {
-					if err := Query(config, nil); err != nil {
+					if err := Query("", config); err != nil {
 						return err
 					}
 

@@ -61,27 +61,21 @@ func (h *History) Insert(path string) error {
 		return errors.New("error: file does not exist")
 	}
 
-	if fileExists := FileExists(h.Path); fileExists {
-		lines, err := ReadLines(h.Path)
-		if err != nil {
-			return err
-		}
+	lines, err := ReadLines(h.Path)
+	if err != nil {
+		return err
+	}
 
-		// append the new file
-		lines = lo.Filter(lines, func(line string, i int) bool {
-			return line != path
-		})
-		lines = append(lines, path)
+	// append the new file
+	lines = lo.Filter(lines, func(line string, i int) bool {
+		return line != path
+	})
+	lines = append(lines, path)
 
-		// write to the history
-		output := strings.Join(lines, "\n")
-		if err := ioutil.WriteFile(h.Path, []byte(output), 0644); err != nil {
-			return err
-		}
-	} else {
-		if err := Cat(path, h.Path); err != nil {
-			return err
-		}
+	// write to the history
+	output := strings.Join(lines, "\n")
+	if err := ioutil.WriteFile(h.Path, []byte(output), 0644); err != nil {
+		return err
 	}
 
 	return nil
