@@ -2,95 +2,81 @@ package main
 
 import (
 	"os"
-	"strings"
 	"testing"
 
-	"github.com/samber/lo"
+	"github.com/odas0r/zet/cmd/assert"
 )
 
 func TestHistory(t *testing.T) {
-	h := &History{Root: "/tmp/foo"}
-	c := &Config{Root: "/tmp/foo"}
-	if err := c.Init(); err != nil {
-		t.Errorf("error: failed to initialize config %V", err)
-	}
+	history := &History{Root: "/tmp/foo"}
+	config := &Config{Root: "/tmp/foo"}
 
 	t.Run("can initialize history", func(t *testing.T) {
-		if err := h.Init(); err != nil {
-			t.Errorf("error: failed to initialize history %V", err)
-		}
+		err := config.Init()
+		assert.Equal(t, err, nil, "config.Init should not fail")
+
+		err = history.Init()
+		assert.Equal(t, err, nil, "history.Init should not fail")
 	})
 
 	t.Run("can append zettel into history", func(t *testing.T) {
 		zettel := &Zettel{Title: "Some random title"}
-		if err := zettel.New(c); err != nil {
-			t.Errorf("error: failed to create zettel %V", err)
-		}
 
-		if err := h.Insert(zettel.Path); err != nil {
-			t.Errorf("error: failed to insert zettel on history %V", err)
-		}
+		err := zettel.New(config)
+		assert.Equal(t, err, nil, "zettel.New should not fail")
 
-		lines, _ := ReadLines(h.Path)
-		linesJoined := strings.Join(lines, " ")
+		history.Insert(zettel.Path)
+		assert.Equal(t, err, nil, "history.Insert should not fail")
 
-		AssertStringContainsSubstringsNoOrder(t, linesJoined, []string{zettel.Path})
+		lines, _ := ReadLines(history.Path)
+		assert.Equal(t, lines[0], zettel.Path, "zettel path must be in history file")
 	})
 
 	t.Run("can append zettel into history (2)", func(t *testing.T) {
 		zettelOne := &Zettel{ID: 123, Title: "Some random title"}
-		if err := zettelOne.New(c); err != nil {
-			t.Errorf("error: failed to create zettel %V", err)
-		}
+		err := zettelOne.New(config)
+		assert.Equal(t, err, nil, "zettelOne.New should not fail")
 
 		zettelTwo := &Zettel{ID: 1234, Title: "Some random title"}
-		if err := zettelTwo.New(c); err != nil {
-			t.Errorf("error: failed to create zettel %V", err)
-		}
+		err = zettelTwo.New(config)
+		assert.Equal(t, err, nil, "zettelTwo.New should not fail")
 
-		if err := h.Insert(zettelOne.Path); err != nil {
-			t.Errorf("error: failed to insert zettel on history %V", err)
-		}
-		if err := h.Insert(zettelTwo.Path); err != nil {
-			t.Errorf("error: failed to insert zettel on history %V", err)
-		}
+		err = history.Insert(zettelOne.Path)
+		assert.Equal(t, err, nil, "history.Insert should not fail")
 
-		lines, _ := ReadLines(h.Path)
-		linesJoined := strings.Join(lines, " ")
+		err = history.Insert(zettelTwo.Path)
+		assert.Equal(t, err, nil, "history.Insert should not fail")
 
-		AssertStringContainsSubstringsInOrder(t, linesJoined, []string{zettelOne.Path, zettelTwo.Path})
+		lines, _ := ReadLines(history.Path)
+		assert.Equal(t, lines[1], zettelOne.Path, "zettelOne path must be in history file")
+		assert.Equal(t, lines[2], zettelTwo.Path, "zettelTwo path must be in history file")
 
-		if err := h.Insert(zettelOne.Path); err != nil {
-			t.Errorf("error: failed to insert zettel on history %V", err)
-		}
+		err = history.Insert(zettelOne.Path)
+		assert.Equal(t, err, nil, "history.Insert should not fail")
 
-		lines, _ = ReadLines(h.Path)
-		linesJoined = strings.Join(lines, " ")
-
-		AssertStringContainsSubstringsInOrder(t, linesJoined, []string{zettelTwo.Path, zettelOne.Path})
+		lines, _ = ReadLines(history.Path)
+		assert.Equal(t, lines[1], zettelTwo.Path, "zettelTwo path must be in history file")
+		assert.Equal(t, lines[2], zettelOne.Path, "zettelOne path must be in history file")
 	})
 
 	t.Run("can delete zettel from history", func(t *testing.T) {
 		zettel := &Zettel{Path: "/tmp/foo/fleet/some-random-title.1234.md"}
 
-		if err := zettel.Read(c); err != nil {
-			t.Errorf("error: failed to read zettel %V", err)
-		}
+		err := zettel.Read(config)
+		assert.Equal(t, err, nil, "zettel.Read should not fail")
 
-		if err := h.Delete(zettel.Path); err != nil {
-			t.Errorf("error: failed to insert zettel on history %V", err)
-		}
+		err = history.Delete(zettel.Path)
+		assert.Equal(t, err, nil, "history.Delete should not fail")
 
-		lines, _ := ReadLines(h.Path)
-
-		if hasLine := lo.Contains(lines, zettel.Path); hasLine {
-			t.Errorf("error: path was not removed from history")
+		lines, _ := ReadLines(history.Path)
+		for _, line := range lines {
+			if line == zettel.Path {
+				t.Errorf("zettel was not removed from history")
+			}
 		}
 	})
 
 	// cleanup
 	err := os.RemoveAll("/tmp/foo")
-	if err != nil {
-		t.Errorf("failed to cleanup")
-	}
+	assert.Equal(t, err, nil, "os.RemoveAll should not fail")
 }

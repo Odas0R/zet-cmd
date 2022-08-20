@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/odas0r/zet/cmd/color"
+	"github.com/odas0r/zet/cmd/columnize"
 	"github.com/samber/lo"
 )
 
@@ -38,14 +40,37 @@ func (h *History) Query(config *Config) (string, error) {
 		return "", err
 	}
 
-	cmd := exec.Command("/bin/bash", config.Scripts.Fzf, strings.Join(lines, "\n"))
+	// transform into titles
+	var titles = make([]string, 0, len(lines))
+	var zettels = make([]*Zettel, 0, len(lines))
 
-	value, err := cmd.Output()
+	for _, line := range lines {
+		zet := &Zettel{Path: line}
+		if err := zet.Read(config); err != nil {
+			return "", err
+		}
+
+		titles = append(titles, fmt.Sprintf("%s | %s", color.UYellow(zet.Lines[0]), strings.Join(zet.Tags, " ")))
+		zettels = append(zettels, zet)
+	}
+
+	cmd := exec.Command("/bin/bash", config.Scripts.Fzf, columnize.SimpleFormat(titles), "70%")
+
+	output, err := cmd.Output()
 	if err != nil {
 		return "", err
 	}
 
-	return strings.TrimSpace(bytes.NewBuffer(value).String()), nil
+	outputStr := strings.TrimSpace(bytes.NewBuffer(output).String())
+	zettelPath, ok := lo.Find(zettels, func(zet *Zettel) bool {
+		return zet.Lines[0] == outputStr
+	})
+
+	if !ok {
+		return "", nil
+	}
+
+	return zettelPath.Path, nil
 }
 
 func (h *History) Insert(path string) error {

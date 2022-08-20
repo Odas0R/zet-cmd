@@ -23,8 +23,8 @@ IFS=: read -ra selected < <(
     --prompt '1. Ripgrep> ' \
     --delimiter : \
     --header '╱ CTRL-R (Ripgrep mode) ╱ CTRL-F (fzf mode) ╱' \
-    --preview 'batcat --theme=gruvbox-dark --color=always {1} --highlight-line {2}' \
-    --preview-window right:50%
+    --preview 'batcat --wrap never --theme=gruvbox-dark --color=always {1} --highlight-line {2}' \
+    --preview-window "+{2}-5:bottom:80%"
 )
 
 [[ -n "${selected[0]}" ]] && echo "${selected[1]}:${selected[0]}"

@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"path"
 )
 
@@ -23,6 +22,7 @@ type Scripts struct {
 	Open      string
 	FindLinks string
 	Query     string
+	Ripgrep   string
 }
 
 type Config struct {
@@ -40,9 +40,9 @@ func (c *Config) Init() error {
 		return err
 	}
 
-  if err := initScripts(c); err != nil {
-    return err
-  }
+	if err := initScripts(c); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -113,29 +113,11 @@ func initScripts(config *Config) error {
 	)
 
 	// setup auxiliary paths
-	script := path.Join(root, "scripts/query")
-	if exists := FileExists(script); !exists {
-		return fmt.Errorf("error: script 'query' does not exist on %s", script)
-	}
-	config.Scripts.Query = script
-
-	script = path.Join(root, "scripts/fzf")
-	if exists := FileExists(script); !exists {
-		return fmt.Errorf("error: script 'fzf' does not exist on %s", script)
-	}
-	config.Scripts.Fzf = script
-
-	script = path.Join(root, "scripts/open")
-	if exists := FileExists(script); !exists {
-		return fmt.Errorf("error: script 'open' does not exist on %s", script)
-	}
-	config.Scripts.Open = script
-
-	script = path.Join(root, "scripts/find-links")
-	if exists := FileExists(script); !exists {
-		return fmt.Errorf("error: script 'find-links' does not exist on %s", script)
-	}
+	config.Scripts.Query = path.Join(root, "scripts/query")
+	config.Scripts.Fzf = path.Join(root, "scripts/fzf")
+	config.Scripts.Open = path.Join(root, "scripts/open")
 	config.Scripts.FindLinks = path.Join(root, "scripts/find-links")
+	config.Scripts.Ripgrep = path.Join(root, "scripts/ripgrep")
 
 	return nil
 }

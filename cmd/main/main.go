@@ -66,6 +66,16 @@ func main() {
 				Aliases: []string{"q"},
 				Usage:   "",
 				Action: func(c *cli.Context) error {
+
+					// query := strings.Join(c.Args().Slice(), " ")
+					//
+					//      lines, err := Ripgrep(query, config)
+					//      if err != nil {
+					//        return err
+					//      }
+					//
+					//      fmt.Printf("lines: %v\n", lines)
+
 					path, line, err := Query("", config)
 					if err != nil {
 						return err
@@ -148,25 +158,6 @@ func main() {
 							return nil
 						},
 					},
-					{
-						Name:  "repair",
-						Usage: "",
-						Action: func(c *cli.Context) error {
-							if c.NArg() == 0 {
-								return errors.New("error: empty arguments")
-							}
-
-							path := strings.Join(c.Args().Slice(), "")
-
-							zettel := &Zettel{Path: path}
-
-							if err := zettel.Repair(config, history); err != nil {
-								return err
-							}
-
-							return nil
-						},
-					},
 				},
 			},
 			{
@@ -174,6 +165,33 @@ func main() {
 				Aliases: []string{"bg"},
 				Usage:   "",
 				Action: func(c *cli.Context) error {
+					return nil
+				},
+			},
+			{
+				Name:  "repair",
+				Usage: "",
+				Action: func(c *cli.Context) error {
+					if c.NArg() == 0 {
+						return errors.New("error: empty arguments")
+					}
+
+					path := strings.Join(c.Args().Slice(), "")
+
+					zettel := &Zettel{Path: path}
+
+					if err := zettel.Read(config); err != nil {
+						return err
+					}
+
+					if err := zettel.Repair(config, history); err != nil {
+						return err
+					}
+
+					if err := zettel.Open(config, 0); err != nil {
+						return err
+					}
+
 					return nil
 				},
 			},

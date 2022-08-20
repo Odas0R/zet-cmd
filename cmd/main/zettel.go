@@ -195,7 +195,7 @@ func (z *Zettel) Repair(c *Config, h *History) error {
 
 	z.ID = id
 	z.Title = strings.ReplaceAll(z.Lines[0], "# ", "")
-	z.Slug = slug.Make(z.Title)
+	z.Slug = slug.Make(strings.ReplaceAll(z.Title, "_", ""))
 	z.FileName = fmt.Sprintf("%s.%d.md", z.Slug, z.ID)
 
 	foldersNames := strings.Split(z.Path, "/")
@@ -207,6 +207,13 @@ func (z *Zettel) Repair(c *Config, h *History) error {
 
 	oldPath := z.Path
 	newPath := fmt.Sprintf("%s/%s/%s", c.Root, z.Type, z.FileName)
+
+  // return if oldPath is equal to newPath, just means that the title wasn't
+  // changed
+  if oldPath == newPath {
+    return nil
+  }
+  
 	if err := os.Rename(oldPath, newPath); err != nil {
 		return err
 	}
@@ -279,6 +286,7 @@ func (z *Zettel) Repair(c *Config, h *History) error {
 		return acc
 	}, []string{})
 
+  // update tags
 	z.Tags = lo.Filter(strings.Split(z.Lines[len(z.Lines)-1], " "), func(tag string, _ int) bool {
 		m := regexp.MustCompile(`^#\w+$`)
 		return m.FindString(tag) == tag

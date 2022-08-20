@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"testing"
+
+	"github.com/odas0r/zet/cmd/assert"
 )
 
 func TestConfig(t *testing.T) {
@@ -10,43 +12,37 @@ func TestConfig(t *testing.T) {
 
 	t.Run("can initialize config", func(t *testing.T) {
 		err := c.Init()
-		ExpectNoError(t, err, "Config.Init should not fail")
+		assert.Equal(t, err, nil, "config.init should not fail")
 	})
 
 	t.Run("config has the right values", func(t *testing.T) {
-		AssertStringEquals(t, "/tmp/foo", c.Root)
-		AssertStringEquals(t, "/tmp/foo/assets", c.Sub.Assets)
-		AssertStringEquals(t, "/tmp/foo/journal", c.Sub.Journal)
-		AssertStringEquals(t, "/tmp/foo/templates", c.Sub.Templates)
-		AssertStringEquals(t, "/tmp/foo/permanent", c.Sub.Permanent)
-		AssertStringEquals(t, "/tmp/foo/fleet", c.Sub.Fleet)
+
+		assert.Equal(t, "/tmp/foo", c.Root, "config.root must be correct")
+		assert.Equal(t, "/tmp/foo/assets", c.Sub.Assets, "config.sub.assets must be correct")
+		assert.Equal(t, "/tmp/foo/journal", c.Sub.Journal, "config.sub.journal must be correct")
+		assert.Equal(t, "/tmp/foo/templates", c.Sub.Templates, "config.sub.templates must be correct")
+		assert.Equal(t, "/tmp/foo/permanent", c.Sub.Permanent, "config.sub.permanent must be correct")
+		assert.Equal(t, "/tmp/foo/fleet", c.Sub.Fleet, "config.sub.fleet must be correct")
 	})
 
 	t.Run("config folders were created", func(t *testing.T) {
-		if assets := FileExists("/tmp/foo/assets"); !assets {
-			t.Errorf("assets folder does not exists")
-		}
+		assetsExists := FileExists("/tmp/foo/assets")
+		assert.Equal(t, assetsExists, true, "assets file must exist")
 
-		if journal := FileExists("/tmp/foo/journal"); !journal {
-			t.Errorf("journal folder does not exists")
-		}
+		journalExists := FileExists("/tmp/foo/journal")
+		assert.Equal(t, journalExists, true, "journal file must exist")
 
-		if templates := FileExists("/tmp/foo/templates"); !templates {
-			t.Errorf("templates folder does not exists")
-		}
+		templatesExists := FileExists("/tmp/foo/templates")
+		assert.Equal(t, templatesExists, true, "templates file must exist")
 
-		if permanent := FileExists("/tmp/foo/permanent"); !permanent {
-			t.Errorf("permanent folder does not exists")
-		}
+		permanentExists := FileExists("/tmp/foo/permanent")
+		assert.Equal(t, permanentExists, true, "permanent file must exist")
 
-		if fleet := FileExists("/tmp/foo/fleet"); !fleet {
-			t.Errorf("fleet folder does not exists")
-		}
+		fleetExists := FileExists("/tmp/foo/fleet")
+		assert.Equal(t, fleetExists, true, "fleet file must exist")
 	})
 
 	// cleanup
 	err := os.RemoveAll("/tmp/foo")
-	if err != nil {
-		t.Errorf("failed to cleanup")
-	}
+	assert.Equal(t, err, nil, "os.RemoveAll should not fail")
 }

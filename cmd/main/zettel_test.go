@@ -8,160 +8,153 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/odas0r/zet/cmd/assert"
 	"github.com/samber/lo"
 )
 
 func TestZettel(t *testing.T) {
-	c := &Config{Root: "/tmp/foo"}
-	h := &History{Root: "/tmp/foo"}
+	config := &Config{Root: "/tmp/foo"}
+	history := &History{Root: "/tmp/foo"}
 
 	// initialize config
-	if err := c.Init(); err != nil {
-		t.Errorf("error: failed to initialize config %V", err)
-	}
+	err := config.Init()
+	assert.Equal(t, err, nil, "config.Init should not fail")
 
 	// initialize history
-	if err := h.Init(); err != nil {
-		t.Errorf("error: failed to initialize history %V", err)
-	}
+	err = history.Init()
+	assert.Equal(t, err, nil, "history.Init should not fail")
 
 	t.Run("can create a zettel", func(t *testing.T) {
-		zettel := &Zettel{ID: 1, Title: "This is a foo title"}
+		zettel := &Zettel{ID: 1, Title: "Title example"}
+		err := zettel.New(config)
+		assert.Equal(t, err, nil, "zettel.New should not fail")
 
-		if err := zettel.New(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-	})
+		zettel = &Zettel{ID: 2, Title: "Title example"}
+		err = zettel.New(config)
+		assert.Equal(t, err, nil, "zettel.New should not fail")
 
-	t.Run("zettel has correct metadata", func(t *testing.T) {
-		zettel := &Zettel{ID: 2, Title: "This is a foo title"}
-
-		if err := zettel.New(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-
-		AssertStringEquals(t, "fleet", zettel.Type)
-		AssertStringContainsSubstringsNoOrder(t, zettel.FileName, []string{"this-is-a-foo-title"})
-		AssertStringContainsSubstringsNoOrder(t, zettel.Path, []string{"/tmp/foo", "this-is-a-foo-title"})
+		zettel = &Zettel{ID: 3, Title: "Title example"}
+		err = zettel.New(config)
+		assert.Equal(t, err, nil, "zettel.New should not fail")
 	})
 
 	t.Run("zettel file exists", func(t *testing.T) {
-		zettel := &Zettel{ID: 3, Title: "This is a foo title"}
+		zettel := &Zettel{Path: "/tmp/foo/fleet/title-example.2.md"}
 
-		if err := zettel.New(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-
-		if zettelExists := FileExists(zettel.Path); !zettelExists {
-			t.Errorf("error: zettel does not exist on path %s", zettel.Path)
-		}
-	})
-
-	t.Run("got the correct lines from the zettel template file", func(t *testing.T) {
-		zettel := &Zettel{ID: 4, Title: "This is a foo title"}
-		if err := zettel.New(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-
-		AssertStringEquals(t, fmt.Sprintf("# %s", zettel.Title), zettel.Lines[0])
-		AssertStringEquals(t, "#example", zettel.Lines[len(zettel.Lines)-1])
+		zettelExists := FileExists(zettel.Path)
+		assert.Equal(t, zettelExists, true, "zettel should exist")
 	})
 
 	t.Run("can read a zettel on a given path", func(t *testing.T) {
-		zettelStub := &Zettel{ID: 5, Title: "This is a foo title"}
-		if err := zettelStub.New(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
+		zettel := &Zettel{Path: "/tmp/foo/fleet/title-example.2.md"}
 
-		zettel := &Zettel{Path: zettelStub.Path}
-		if err := zettel.Read(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
+		err := zettel.Read(config)
+		assert.Equal(t, err, nil, "zettel.Read should not fail")
 
-		AssertStringEquals(t, "This is a foo title", zettel.Title)
-		AssertStringEquals(t, "this-is-a-foo-title", zettel.Slug)
-		AssertIntEquals(t, int(zettelStub.ID), int(zettel.ID))
-		AssertStringEquals(t, zettelStub.FileName, zettel.FileName)
-		AssertStringArraysEqualNoOrder(t, []string{"#example"}, zettel.Tags)
+		assert.Equal(t, zettel.ID, int64(2), "zettel.ID should be correct")
+		assert.Equal(t, zettel.Type, "fleet", "zettel.Type should be correct")
+		assert.Equal(t, zettel.Slug, "title-example", "zettel.Slug should be correct")
+		assert.Equal(t, zettel.Path, "/tmp/foo/fleet/title-example.2.md", "zettel.Path should be correct")
+		assert.Equal(t, fmt.Sprintf("# %s", zettel.Title), zettel.Lines[0], "zettel.Title should be on line 0")
+		assert.Equal(t, "#example", zettel.Lines[len(zettel.Lines)-1], "tag #example should be on the last line")
 	})
 
 	t.Run("can link a zettel and read his links", func(t *testing.T) {
-		zettelOne := &Zettel{ID: 6, Title: "This is a foo title"}
-		zettelTwo := &Zettel{ID: 7, Title: "This is a another title"}
+		zettelOne := &Zettel{Path: "/tmp/foo/fleet/title-example.1.md"}
+		zettelTwo := &Zettel{Path: "/tmp/foo/fleet/title-example.2.md"}
+		zettelThree := &Zettel{Path: "/tmp/foo/fleet/title-example.3.md"}
 
-		if err := zettelOne.New(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelTwo.New(c); err != nil {
-			t.Errorf("error: %s", err)
+		//
+		// Read
+		//
+
+		err := zettelOne.Read(config)
+		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
+
+		err = zettelTwo.Read(config)
+		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
+
+		err = zettelThree.Read(config)
+		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
+
+		//
+		// Link
+		//
+
+		err = zettelOne.Link(zettelTwo)
+		assert.Equal(t, err, nil, "zettelOne should link to zettelTwo")
+
+		err = zettelTwo.Link(zettelOne)
+		assert.Equal(t, err, nil, "zettelTwo should link to zettelOne")
+
+		err = zettelThree.Link(zettelOne)
+		assert.Equal(t, err, nil, "zettelThree should link to zettelOne")
+
+		//
+		// Read
+		//
+
+		err = zettelOne.Read(config)
+		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
+
+		err = zettelTwo.Read(config)
+		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
+
+		err = zettelThree.Read(config)
+		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
+
+		containsLink := func(zettel *Zettel, zettelToLink *Zettel) bool {
+			foundZettelLink := false
+			for _, line := range zettel.Lines {
+				hasLink := strings.Contains(line, zettelToLink.Path)
+				if hasLink {
+					foundZettelLink = hasLink
+				}
+			}
+			return foundZettelLink
 		}
 
-		if err := zettelOne.Link(zettelTwo); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelTwo.Link(zettelOne); err != nil {
-			t.Errorf("error: %s", err)
-		}
-
-		if err := zettelOne.Read(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelTwo.Read(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-
-		AssertStringArraysEqualNoOrder(t, []string{zettelTwo.Path}, zettelOne.Links)
-		AssertStringArraysEqualNoOrder(t, []string{zettelOne.Path}, zettelTwo.Links)
-		AssertStringContainsSubstringsNoOrder(t, strings.Join(zettelOne.Lines, ""), []string{zettelTwo.Path})
-		AssertStringContainsSubstringsNoOrder(t, strings.Join(zettelTwo.Lines, ""), []string{zettelOne.Path})
+		assert.Equal(t, zettelOne.Links[0], "/tmp/foo/fleet/title-example.2.md", "zettelOne contains zettelTwo link")
+		assert.Equal(t, zettelTwo.Links[0], "/tmp/foo/fleet/title-example.1.md", "zettelTwo contains zettelOne link")
+		assert.Equal(t, zettelThree.Links[0], "/tmp/foo/fleet/title-example.1.md", "zettelThree contains zettelOne link")
+		assert.Equal(t, containsLink(zettelOne, zettelTwo), true, "zettelOne contains zettelTwo link on zettel.Lines")
+		assert.Equal(t, containsLink(zettelTwo, zettelOne), true, "zettelTwo contains zettelOne link on zettel.Lines")
+		assert.Equal(t, containsLink(zettelThree, zettelOne), true, "zettelThree contains zettelOne link on zettel.Lines")
 	})
 
 	t.Run("cant link same zettel twice", func(t *testing.T) {
-		zettelOne := &Zettel{ID: 9, Title: "This is a foo title"}
-		zettelTwo := &Zettel{ID: 10, Title: "This is a another title"}
+		zettelOne := &Zettel{Path: "/tmp/foo/fleet/title-example.1.md"}
+		zettelTwo := &Zettel{Path: "/tmp/foo/fleet/title-example.2.md"}
 
-		// create zettels
-		if err := zettelOne.New(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelTwo.New(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
+		//
+		// Read
+		//
 
-		if err := zettelOne.Link(zettelTwo); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelOne.Read(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
+		err := zettelOne.Read(config)
+		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
 
-		err := zettelOne.Link(zettelTwo)
-		ExpectError(t, err, "should have failed, can't link zettels twice")
+		err = zettelTwo.Read(config)
+		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
+
+		err = zettelOne.Link(zettelTwo)
+		assert.NotEqual(t, err, nil, "zettelOne.Link should fail")
 	})
 
 	t.Run("find-links gives files with the id of the link", func(t *testing.T) {
-		zettelOne := &Zettel{ID: 1324, Title: "This is a example title"}
-		zettelTwo := &Zettel{ID: 1341, Title: "This is a as title"}
-		zettelThree := &Zettel{ID: 1343, Title: "This is a cw title"}
+		zettelOne := &Zettel{Path: "/tmp/foo/fleet/title-example.1.md"}
+		zettelTwo := &Zettel{Path: "/tmp/foo/fleet/title-example.2.md"}
 
-		if err := zettelOne.New(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelTwo.New(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelThree.New(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
+		//
+		// Read
+		//
 
-		if err := zettelTwo.Link(zettelOne); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelThree.Link(zettelOne); err != nil {
-			t.Errorf("error: %s", err)
-		}
+		err := zettelOne.Read(config)
+		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
 
-		cmd := exec.Command("/bin/bash", c.Scripts.FindLinks, "1324", c.Sub.Fleet, c.Sub.Permanent)
+		err = zettelTwo.Read(config)
+		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
+
+		cmd := exec.Command("/bin/bash", config.Scripts.FindLinks, "2", config.Sub.Fleet, config.Sub.Permanent)
 
 		output, err := cmd.Output()
 		if err != nil {
@@ -170,9 +163,9 @@ func TestZettel(t *testing.T) {
 
 		if len(output) > 0 {
 			links := bytes.NewBuffer(output).String()
+			linkPath := strings.Split(links, ":")[1]
 
-			AssertStringContainsSubstringsNoOrder(t, links, []string{zettelTwo.Path})
-			AssertStringContainsSubstringsNoOrder(t, links, []string{zettelThree.Path})
+			assert.Equal(t, strings.TrimSpace(linkPath), "/tmp/foo/fleet/title-example.1.md", "find-links should give zettelOne.Path")
 		} else {
 			t.Errorf("error: find-links gave 0 results")
 		}
@@ -180,168 +173,93 @@ func TestZettel(t *testing.T) {
 	})
 
 	t.Run("can repair zettel links (1)", func(t *testing.T) {
-		zettelOne := &Zettel{ID: 1224, Title: "This is a foo title"}
-		zettelTwo := &Zettel{ID: 1241, Title: "This is a boo title"}
-		zettelThree := &Zettel{ID: 1243, Title: "This is a bye title"}
+		zettelOne := &Zettel{Path: "/tmp/foo/fleet/title-example.1.md"}
+		zettelTwo := &Zettel{Path: "/tmp/foo/fleet/title-example.2.md"}
+		zettelThree := &Zettel{Path: "/tmp/foo/fleet/title-example.3.md"}
 
-		if err := zettelOne.New(c); err != nil {
-			t.Errorf("error: failed to link zettel %s", err)
-		}
-		if err := zettelTwo.New(c); err != nil {
-			t.Errorf("error: failed to link zettel %s", err)
-		}
-		if err := zettelThree.New(c); err != nil {
-			t.Errorf("error: failed to link zettel %s", err)
-		}
+		//
+		// Read
+		//
 
-		if err := zettelTwo.Link(zettelOne); err != nil {
-			t.Errorf("error: failed to link zettel %s", err)
-		}
-		if err := zettelThree.Link(zettelOne); err != nil {
-			t.Errorf("error: failed to link zettel %s", err)
-		}
+		err := zettelOne.Read(config)
+		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
+		err = zettelTwo.Read(config)
+		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
+		err = zettelThree.Read(config)
+		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
 
 		// modify the title
 		zettelOne.Lines = lo.ReplaceAll(zettelOne.Lines, zettelOne.Lines[0], "# foo bar")
-		if err := zettelOne.Write(); err != nil {
-			t.Errorf("error: failed to write zettel %s", err)
+
+		// Write
+		err = zettelOne.Write()
+		assert.Equal(t, err, nil, "zettelOne.Write should not fail")
+
+		// Repair zettel
+		err = zettelOne.Repair(config, history)
+		assert.Equal(t, err, nil, "zettelOne.Repair should not fail")
+
+		assert.Equal(t, zettelOne.Title, "foo bar", "zettelOne.Title should be correct")
+		assert.Equal(t, zettelOne.Lines[0], "# foo bar", "zettelOne.Lines[0] should be correct")
+		assert.Equal(t, zettelOne.Slug, "foo-bar", "zettelOne.Slug should be correct")
+		assert.Equal(t, zettelOne.Type, "fleet", "zettelOne.Type should be correct")
+		assert.Equal(t, zettelOne.FileName, "foo-bar.1.md", "zettelOne.FileName should be correct")
+		assert.Equal(t, zettelOne.Path, "/tmp/foo/fleet/foo-bar.1.md", "zettelOne.Path should be correct")
+
+		err = zettelTwo.Read(config)
+		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
+
+		err = zettelThree.Read(config)
+		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
+
+		containsLink := func(zettel *Zettel, zettelToLink *Zettel) bool {
+			foundZettelLink := false
+			for _, line := range zettel.Lines {
+				hasLink := strings.Contains(line, zettelToLink.Path)
+				if hasLink {
+					foundZettelLink = hasLink
+				}
+			}
+			return foundZettelLink
 		}
 
-		// repair zettel
-		if err := zettelOne.Repair(c, h); err != nil {
-			t.Errorf("error: failed to repair zettel %s", err)
-		}
-
-		AssertStringEquals(t, "foo bar", zettelOne.Title)
-		AssertStringEquals(t, "# foo bar", zettelOne.Lines[0])
-		AssertStringEquals(t, "foo-bar", zettelOne.Slug)
-		AssertStringEquals(t, "fleet", zettelOne.Type)
-		AssertStringEquals(t, fmt.Sprintf("foo-bar.%d.md", zettelOne.ID), zettelOne.FileName)
-		AssertStringEquals(t, fmt.Sprintf("%s/foo-bar.%d.md", c.Sub.Fleet, zettelOne.ID), zettelOne.Path)
-
-		zettelTwo.Read(c)
-		zettelThree.Read(c)
-
-		link := fmt.Sprintf("- [%s](%s)", zettelOne.Title, zettelOne.Path)
-
-		// Check if links are present on the files
-		AssertStringContainsSubstringsNoOrder(t, strings.Join(zettelTwo.Lines, " "), []string{link})
-		AssertStringContainsSubstringsNoOrder(t, strings.Join(zettelThree.Lines, " "), []string{link})
-	})
-
-	t.Run("can repair zettel links (2)", func(t *testing.T) {
-		zettelOne := &Zettel{Path: fmt.Sprintf("%s/%s", c.Sub.Fleet, "foo-bar.1224.md")}
-		zettelTwo := &Zettel{Path: fmt.Sprintf("%s/%s", c.Sub.Fleet, "this-is-a-boo-title.1241.md")}
-		zettelThree := &Zettel{Path: fmt.Sprintf("%s/%s", c.Sub.Fleet, "this-is-a-bye-title.1243.md")}
-
-		// Read Zettels
-		if err := zettelOne.Read(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelTwo.Read(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelThree.Read(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-
-		// Link Zettels
-		if err := zettelOne.Link(zettelTwo); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelOne.Link(zettelThree); err != nil {
-			t.Errorf("error: %s", err)
-		}
-
-		// Read Zettels
-		if err := zettelOne.Read(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-
-		if err := zettelTwo.WriteLine(0, "# changed title"); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelOne.Read(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-
-		if err := zettelTwo.Repair(c, h); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelOne.Read(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-
-		link := fmt.Sprintf("- [%s](%s)", zettelTwo.Title, zettelTwo.Path)
-		AssertStringContainsSubstringsNoOrder(t, strings.Join(zettelOne.Lines, " "), []string{link})
-
-		// Modify zettelThree
-		if err := zettelThree.WriteLine(0, "# pretty different"); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelThree.Read(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelThree.Repair(c, h); err != nil {
-			t.Errorf("error: %s", err)
-		}
-
-		// update the modified zettel
-		if err := zettelOne.Read(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-
-		link = fmt.Sprintf("- [%s](%s)", zettelThree.Title, zettelThree.Path)
-		AssertStringContainsSubstringsNoOrder(t, strings.Join(zettelOne.Lines, " "), []string{link})
+		assert.Equal(t, containsLink(zettelTwo, zettelOne), true, "zettelOne is linked to zettelTwo")
+		assert.Equal(t, containsLink(zettelThree, zettelOne), true, "zettelOne is linked to zettelThree")
 	})
 
 	t.Run("can permanent zettel", func(t *testing.T) {
-		zettelOne := &Zettel{ID: 1624, Title: "This is a foo title"}
-		zettelTwo := &Zettel{ID: 1641, Title: "This is a boo title"}
-		zettelThree := &Zettel{ID: 1643, Title: "This is a bye title"}
+		zettelOne := &Zettel{Path: "/tmp/foo/fleet/foo-bar.1.md"}
+		zettelTwo := &Zettel{Path: "/tmp/foo/fleet/title-example.2.md"}
+		zettelThree := &Zettel{Path: "/tmp/foo/fleet/title-example.3.md"}
 
-		if err := zettelOne.New(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelTwo.New(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelThree.New(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
+		//
+		// Read
+		//
 
-		if err := zettelTwo.Link(zettelOne); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelThree.Link(zettelOne); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelOne.Permanent(c, h); err != nil {
-			t.Errorf("error: %s", err)
-		}
+		err := zettelOne.Read(config)
+		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
+		err = zettelTwo.Read(config)
+		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
+		err = zettelThree.Read(config)
+		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
 
-		// Update
-		if err := zettelOne.Read(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelTwo.Read(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
-		if err := zettelThree.Read(c); err != nil {
-			t.Errorf("error: %s", err)
-		}
+		err = zettelOne.Permanent(config, history)
+		assert.Equal(t, err, nil, "zettelOne.Permanent should not fail")
+    
+		err = zettelOne.Read(config)
+		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
+		err = zettelTwo.Read(config)
+		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
+		err = zettelThree.Read(config)
+		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
 
-		AssertStringEquals(t, fmt.Sprintf("%s/%s", c.Sub.Permanent, zettelOne.FileName), zettelOne.Path)
-		link := fmt.Sprintf("- [%s](%s)", zettelOne.Title, zettelOne.Path)
-
-		// Check if links are present on the files
-		AssertStringContainsSubstringsNoOrder(t, strings.Join(zettelTwo.Lines, " "), []string{link})
-		AssertStringContainsSubstringsNoOrder(t, strings.Join(zettelThree.Lines, " "), []string{link})
+    assert.Equal(t, zettelOne.Type, "permanent", "zettelOne.Type should be correct")
+    assert.Equal(t, zettelOne.Path, "/tmp/foo/permanent/foo-bar.1.md", "zettelOne.Path should be correct")
+    assert.Equal(t, strings.Contains(zettelTwo.Links[0], "foo-bar.1.md"), true, "zettelOne is linked to zettelTwo")
+    assert.Equal(t, strings.Contains(zettelThree.Links[0], "foo-bar.1.md"), true, "zettelOne is linked to zettelThree")
 	})
 
 	// cleanup
-	err := os.RemoveAll("/tmp/foo")
-	if err != nil {
-		t.Errorf("error: failed to cleanup")
-	}
+	err = os.RemoveAll("/tmp/foo")
+	assert.Equal(t, err, nil, "os.RemoveAll should not fail")
 }
