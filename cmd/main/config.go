@@ -5,9 +5,7 @@ import (
 	"path"
 )
 
-const (
-	ZET_EXECUTABLE_PATH = "/home/odas0r/github.com/odas0r/zet-cmd"
-)
+var config = &Config{}
 
 type Sub struct {
 	Templates string
@@ -26,98 +24,81 @@ type Scripts struct {
 }
 
 type Config struct {
-	Root    string
+	Path    string
 	Scripts Scripts
 	Sub     Sub
 }
 
-func (c *Config) Init() error {
-	if c.Root == "" {
-		return errors.New("Config path cannot be an empty string")
+func (c *Config) Init(configPath string) error {
+	if configPath == "" {
+		return errors.New("error: config path cannot be an empty string")
 	}
 
-	if err := initFolderLayout(c); err != nil {
-		return err
-	}
+  c.Path = configPath
 
-	if err := initScripts(c); err != nil {
+	// set paths of config
+	c.Sub.Fleet = path.Join(c.Path, "fleet")
+	c.Sub.Permanent = path.Join(c.Path, "permanent")
+	c.Sub.Templates = path.Join(c.Path, "templates")
+	c.Sub.Journal = path.Join(c.Path, "journal")
+	c.Sub.Assets = path.Join(c.Path, "assets")
+
+	// set scripts paths
+	zetExecutablePath := "/home/odas0r/github.com/odas0r/zet-cmd"
+
+	c.Scripts.Query = path.Join(zetExecutablePath, "scripts/query")
+	c.Scripts.Fzf = path.Join(zetExecutablePath, "scripts/fzf")
+	c.Scripts.Open = path.Join(zetExecutablePath, "scripts/open")
+	c.Scripts.FindLinks = path.Join(zetExecutablePath, "scripts/find-links")
+	c.Scripts.Ripgrep = path.Join(zetExecutablePath, "scripts/ripgrep")
+
+	if err := c.setupLayout(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func initFolderLayout(config *Config) error {
-	var (
-		root      = config.Root
-		templates = path.Join(root, "templates")
-		assets    = path.Join(root, "assets")
-		permanent = path.Join(root, "permanent")
-		fleet     = path.Join(root, "fleet")
-		journal   = path.Join(root, "journal")
-	)
-
-	// setup auxiliary paths
-	config.Sub.Fleet = fleet
-	config.Sub.Permanent = permanent
-	config.Sub.Templates = templates
-	config.Sub.Journal = journal
-	config.Sub.Assets = assets
-
+func (c *Config) setupLayout() error {
 	// create zet/
-	if err := Mkdir(root); err != nil {
+	if err := Mkdir(c.Path); err != nil {
 		return err
 	}
 
 	// create templates/
-	if err := Mkdir(templates); err != nil {
+	if err := Mkdir(c.Sub.Templates); err != nil {
 		return err
 	}
 
 	// create templates/journal.tmpl.md
-	if err := CreateFile(journalTmpl, path.Join(templates, "journal.tmpl.md")); err != nil {
+	if err := NewFile(journalTmpl, path.Join(c.Sub.Templates, "journal.tmpl.md")); err != nil {
 		return err
 	}
 
 	// create templates/zet.tmpl.md
-	if err := CreateFile(zetTmpl, path.Join(templates, "zet.tmpl.md")); err != nil {
+	if err := NewFile(zetTmpl, path.Join(c.Sub.Templates, "zet.tmpl.md")); err != nil {
 		return err
 	}
 
 	// create assets/
-	if err := Mkdir(assets); err != nil {
+	if err := Mkdir(c.Sub.Assets); err != nil {
 		return err
 	}
 
 	// create fleet/
-	if err := Mkdir(fleet); err != nil {
+	if err := Mkdir(c.Sub.Fleet); err != nil {
 		return err
 	}
 
 	// create permanent/
-	if err := Mkdir(permanent); err != nil {
+	if err := Mkdir(c.Sub.Permanent); err != nil {
 		return err
 	}
 
 	// create journal/
-	if err := Mkdir(journal); err != nil {
+	if err := Mkdir(c.Sub.Journal); err != nil {
 		return err
 	}
-
-	return nil
-}
-
-func initScripts(config *Config) error {
-	var (
-		root = ZET_EXECUTABLE_PATH
-	)
-
-	// setup auxiliary paths
-	config.Scripts.Query = path.Join(root, "scripts/query")
-	config.Scripts.Fzf = path.Join(root, "scripts/fzf")
-	config.Scripts.Open = path.Join(root, "scripts/open")
-	config.Scripts.FindLinks = path.Join(root, "scripts/find-links")
-	config.Scripts.Ripgrep = path.Join(root, "scripts/ripgrep")
 
 	return nil
 }

@@ -30,7 +30,7 @@ type Zettel struct {
 	Lines    []string
 }
 
-func (z *Zettel) New(c *Config) error {
+func (z *Zettel) New() error {
 	if z.Title == "" {
 		return errors.New("title cannot be empty")
 	}
@@ -42,7 +42,7 @@ func (z *Zettel) New(c *Config) error {
 
 	z.Slug = slug.Make(z.Title)
 	z.FileName = fmt.Sprintf("%s.%d.md", z.Slug, z.ID)
-	z.Path = fmt.Sprintf("%s/%s", c.Sub.Fleet, z.FileName)
+	z.Path = fmt.Sprintf("%s/%s", config.Sub.Fleet, z.FileName)
 	z.Type = "fleet" // can be "fleet" or "permanent"
 	z.Tags = []string{}
 	z.Links = []string{}
@@ -54,7 +54,7 @@ func (z *Zettel) New(c *Config) error {
 	}
 
 	// parse the template file of the zettel
-	tmpl, err := template.ParseFiles(fmt.Sprintf("%s/zet.tmpl.md", c.Sub.Templates))
+	tmpl, err := template.ParseFiles(fmt.Sprintf("%s/zet.tmpl.md", config.Sub.Templates))
 	if err != nil {
 		return err
 	}
@@ -78,12 +78,12 @@ func (z *Zettel) New(c *Config) error {
 	return nil
 }
 
-func (z *Zettel) Read(c *Config) error {
+func (z *Zettel) Read() error {
 	if z.Path == "" {
 		return errors.New("error: zettel path cannot be empty")
 	}
 
-	if !strings.Contains(z.Path, c.Root) {
+	if !strings.Contains(z.Path, config.Path) {
 		return errors.New("error: file is not under the root path")
 	}
 
@@ -176,7 +176,7 @@ func (z *Zettel) Link(zettel *Zettel) error {
 	return nil
 }
 
-func (z *Zettel) Repair(c *Config, h *History) error {
+func (z *Zettel) Repair() error {
 	//
 	// Get Metadata
 	//
@@ -206,7 +206,7 @@ func (z *Zettel) Repair(c *Config, h *History) error {
 	//
 
 	oldPath := z.Path
-	newPath := fmt.Sprintf("%s/%s/%s", c.Root, z.Type, z.FileName)
+	newPath := fmt.Sprintf("%s/%s/%s", config.Path, z.Type, z.FileName)
 
   // return if oldPath is equal to newPath, just means that the title wasn't
   // changed
@@ -221,13 +221,13 @@ func (z *Zettel) Repair(c *Config, h *History) error {
 	z.Path = newPath
 
 	// Fix the history
-	h.Delete(oldPath)
-	h.Insert(newPath)
+	history.Delete(oldPath)
+	history.Insert(newPath)
 
 	//
 	// Fix the broken links on other zettels
 	//
-	cmd := exec.Command("/bin/bash", c.Scripts.FindLinks, idStr, c.Sub.Fleet, c.Sub.Permanent)
+	cmd := exec.Command("/bin/bash", config.Scripts.FindLinks, idStr, config.Sub.Fleet, config.Sub.Permanent)
 
 	data, err := cmd.Output()
 	if err != nil {
@@ -251,7 +251,7 @@ func (z *Zettel) Repair(c *Config, h *History) error {
 		filepath := values[1]
 
 		zettel := &Zettel{Path: filepath}
-		if err := zettel.Read(c); err != nil {
+		if err := zettel.Read(); err != nil {
 			return err
 		}
 
@@ -334,8 +334,8 @@ func (z *Zettel) WriteLine(index int, newLine string) error {
 	return nil
 }
 
-func (z *Zettel) Permanent(c *Config, h *History) error {
-	newPath := fmt.Sprintf("%s/%s", c.Sub.Permanent, z.FileName)
+func (z *Zettel) Permanent() error {
+	newPath := fmt.Sprintf("%s/%s", config.Sub.Permanent, z.FileName)
 	if err := os.Rename(z.Path, newPath); err != nil {
 		return err
 	}
@@ -344,15 +344,15 @@ func (z *Zettel) Permanent(c *Config, h *History) error {
 	z.Path = newPath
 
 	// fix all broken links
-	if err := z.Repair(c, h); err != nil {
+	if err := z.Repair(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (z *Zettel) Open(c *Config, lineNr int) error {
-	if err := Open(c, z.Path, lineNr); err != nil {
+func (z *Zettel) Open(lineNr int) error {
+	if err := Open(z.Path, lineNr); err != nil {
 		return err
 	}
 

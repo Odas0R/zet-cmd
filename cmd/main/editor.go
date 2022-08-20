@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-func Query(initial string, c *Config) (string, int, error) {
-	cmd := exec.Command("/bin/bash", c.Scripts.Query, initial, c.Sub.Fleet, c.Sub.Permanent)
+func Query(initial string) (string, int, error) {
+	cmd := exec.Command("/bin/bash", config.Scripts.Query, initial, config.Sub.Fleet, config.Sub.Permanent)
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
 
@@ -31,22 +31,7 @@ func Query(initial string, c *Config) (string, int, error) {
 	return strings.TrimSpace(path), lineNr, nil
 }
 
-func Ripgrep(query string, c *Config) ([]string, error) {
-	cmd := exec.Command("/bin/bash", c.Scripts.Ripgrep, strings.TrimSpace(query), c.Sub.Fleet, c.Sub.Permanent)
-	cmd.Stdin = os.Stdin
-	cmd.Stderr = os.Stderr
-
-	value, err := cmd.Output()
-	if err != nil {
-		return []string{}, err
-	}
-
-	lines := strings.Split(bytes.NewBuffer(value).String(), "\n")
-
-	return lines, nil
-}
-
-func Open(config *Config, path string, lineNr int) error {
+func Open(path string, lineNr int) error {
 	if fileExists := FileExists(path); !fileExists {
 		return errors.New("error: file does not exist")
 	}

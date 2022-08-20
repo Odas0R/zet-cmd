@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -13,28 +12,17 @@ import (
 )
 
 func TestZettel(t *testing.T) {
-	config := &Config{Root: "/tmp/foo"}
-	history := &History{Root: "/tmp/foo"}
-
-	// initialize config
-	err := config.Init()
-	assert.Equal(t, err, nil, "config.Init should not fail")
-
-	// initialize history
-	err = history.Init()
-	assert.Equal(t, err, nil, "history.Init should not fail")
-
 	t.Run("can create a zettel", func(t *testing.T) {
 		zettel := &Zettel{ID: 1, Title: "Title example"}
-		err := zettel.New(config)
+		err := zettel.New()
 		assert.Equal(t, err, nil, "zettel.New should not fail")
 
 		zettel = &Zettel{ID: 2, Title: "Title example"}
-		err = zettel.New(config)
+		err = zettel.New()
 		assert.Equal(t, err, nil, "zettel.New should not fail")
 
 		zettel = &Zettel{ID: 3, Title: "Title example"}
-		err = zettel.New(config)
+		err = zettel.New()
 		assert.Equal(t, err, nil, "zettel.New should not fail")
 	})
 
@@ -48,7 +36,7 @@ func TestZettel(t *testing.T) {
 	t.Run("can read a zettel on a given path", func(t *testing.T) {
 		zettel := &Zettel{Path: "/tmp/foo/fleet/title-example.2.md"}
 
-		err := zettel.Read(config)
+		err := zettel.Read()
 		assert.Equal(t, err, nil, "zettel.Read should not fail")
 
 		assert.Equal(t, zettel.ID, int64(2), "zettel.ID should be correct")
@@ -68,13 +56,13 @@ func TestZettel(t *testing.T) {
 		// Read
 		//
 
-		err := zettelOne.Read(config)
+		err := zettelOne.Read()
 		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
 
-		err = zettelTwo.Read(config)
+		err = zettelTwo.Read()
 		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
 
-		err = zettelThree.Read(config)
+		err = zettelThree.Read()
 		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
 
 		//
@@ -94,13 +82,13 @@ func TestZettel(t *testing.T) {
 		// Read
 		//
 
-		err = zettelOne.Read(config)
+		err = zettelOne.Read()
 		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
 
-		err = zettelTwo.Read(config)
+		err = zettelTwo.Read()
 		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
 
-		err = zettelThree.Read(config)
+		err = zettelThree.Read()
 		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
 
 		containsLink := func(zettel *Zettel, zettelToLink *Zettel) bool {
@@ -130,10 +118,10 @@ func TestZettel(t *testing.T) {
 		// Read
 		//
 
-		err := zettelOne.Read(config)
+		err := zettelOne.Read()
 		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
 
-		err = zettelTwo.Read(config)
+		err = zettelTwo.Read()
 		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
 
 		err = zettelOne.Link(zettelTwo)
@@ -148,10 +136,10 @@ func TestZettel(t *testing.T) {
 		// Read
 		//
 
-		err := zettelOne.Read(config)
+		err := zettelOne.Read()
 		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
 
-		err = zettelTwo.Read(config)
+		err = zettelTwo.Read()
 		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
 
 		cmd := exec.Command("/bin/bash", config.Scripts.FindLinks, "2", config.Sub.Fleet, config.Sub.Permanent)
@@ -181,11 +169,11 @@ func TestZettel(t *testing.T) {
 		// Read
 		//
 
-		err := zettelOne.Read(config)
+		err := zettelOne.Read()
 		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
-		err = zettelTwo.Read(config)
+		err = zettelTwo.Read()
 		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
-		err = zettelThree.Read(config)
+		err = zettelThree.Read()
 		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
 
 		// modify the title
@@ -196,7 +184,7 @@ func TestZettel(t *testing.T) {
 		assert.Equal(t, err, nil, "zettelOne.Write should not fail")
 
 		// Repair zettel
-		err = zettelOne.Repair(config, history)
+		err = zettelOne.Repair()
 		assert.Equal(t, err, nil, "zettelOne.Repair should not fail")
 
 		assert.Equal(t, zettelOne.Title, "foo bar", "zettelOne.Title should be correct")
@@ -206,10 +194,10 @@ func TestZettel(t *testing.T) {
 		assert.Equal(t, zettelOne.FileName, "foo-bar.1.md", "zettelOne.FileName should be correct")
 		assert.Equal(t, zettelOne.Path, "/tmp/foo/fleet/foo-bar.1.md", "zettelOne.Path should be correct")
 
-		err = zettelTwo.Read(config)
+		err = zettelTwo.Read()
 		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
 
-		err = zettelThree.Read(config)
+		err = zettelThree.Read()
 		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
 
 		containsLink := func(zettel *Zettel, zettelToLink *Zettel) bool {
@@ -236,30 +224,27 @@ func TestZettel(t *testing.T) {
 		// Read
 		//
 
-		err := zettelOne.Read(config)
+		err := zettelOne.Read()
 		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
-		err = zettelTwo.Read(config)
+		err = zettelTwo.Read()
 		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
-		err = zettelThree.Read(config)
+		err = zettelThree.Read()
 		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
 
-		err = zettelOne.Permanent(config, history)
+		err = zettelOne.Permanent()
 		assert.Equal(t, err, nil, "zettelOne.Permanent should not fail")
-    
-		err = zettelOne.Read(config)
+
+		err = zettelOne.Read()
 		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
-		err = zettelTwo.Read(config)
+		err = zettelTwo.Read()
 		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
-		err = zettelThree.Read(config)
+		err = zettelThree.Read()
 		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
 
-    assert.Equal(t, zettelOne.Type, "permanent", "zettelOne.Type should be correct")
-    assert.Equal(t, zettelOne.Path, "/tmp/foo/permanent/foo-bar.1.md", "zettelOne.Path should be correct")
-    assert.Equal(t, strings.Contains(zettelTwo.Links[0], "foo-bar.1.md"), true, "zettelOne is linked to zettelTwo")
-    assert.Equal(t, strings.Contains(zettelThree.Links[0], "foo-bar.1.md"), true, "zettelOne is linked to zettelThree")
+		assert.Equal(t, zettelOne.Type, "permanent", "zettelOne.Type should be correct")
+		assert.Equal(t, zettelOne.Path, "/tmp/foo/permanent/foo-bar.1.md", "zettelOne.Path should be correct")
+		assert.Equal(t, strings.Contains(zettelTwo.Links[0], "foo-bar.1.md"), true, "zettelOne is linked to zettelTwo")
+		assert.Equal(t, strings.Contains(zettelThree.Links[0], "foo-bar.1.md"), true, "zettelOne is linked to zettelThree")
 	})
 
-	// cleanup
-	err = os.RemoveAll("/tmp/foo")
-	assert.Equal(t, err, nil, "os.RemoveAll should not fail")
 }

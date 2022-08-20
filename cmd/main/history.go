@@ -13,28 +13,35 @@ import (
 	"github.com/samber/lo"
 )
 
-const FILE_NAME = ".history"
+var history = &History{}
 
 type History struct {
-	Path string
-	Root string
+	Path  string
+	Lines []string
 }
 
-func (h *History) Init() error {
-	if h.Root == "" {
-		return errors.New("error: history cannot have Root empty")
+func (h *History) Init(root string, fileName string) error {
+	if root == "" {
+		return errors.New("error: history cannot have root empty")
+	}
+	if fileName == "" {
+		return errors.New("error: history cannot have filename empty")
 	}
 
-	h.Path = fmt.Sprintf("%s/%s", h.Root, FILE_NAME)
+	h.Path = fmt.Sprintf("%s/%s", root, fileName)
 
-	if err := CreateFile("", h.Path); err != nil {
+	if err := NewFile("", h.Path); err != nil {
+		return err
+	}
+
+	if err := h.Read(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (h *History) Query(config *Config) (string, error) {
+func (h *History) Query() (string, error) {
 	lines, err := ReadLines(h.Path)
 	if err != nil {
 		return "", err
@@ -46,7 +53,7 @@ func (h *History) Query(config *Config) (string, error) {
 
 	for _, line := range lines {
 		zet := &Zettel{Path: line}
-		if err := zet.Read(config); err != nil {
+		if err := zet.Read(); err != nil {
 			return "", err
 		}
 
@@ -78,12 +85,10 @@ func (h *History) Insert(path string) error {
 		return errors.New("error: path cannot be empty")
 	}
 
-	if !strings.Contains(path, h.Root) {
-		return errors.New("error: path must be valid")
-	}
-
-	if fileExists := FileExists(path); !fileExists {
-		return errors.New("error: file does not exist")
+	// Validate zettel
+	zettel := &Zettel{Path: path}
+	if err := zettel.Read(); err != nil {
+		return err
 	}
 
 	lines, err := ReadLines(h.Path)
@@ -124,8 +129,20 @@ func (h *History) Delete(path string) error {
 	return nil
 }
 
-func (h *History) Open(c *Config) error {
-	if err := Open(c, h.Path, 0); err != nil {
+func (h *History) Read() error {
+	lines, err := ReadLines(h.Path)
+	if err != nil {
+		return err
+	}
+
+	// update lines
+	h.Lines = lines
+
+	return nil
+}
+
+func (h *History) Open() error {
+	if err := Open(h.Path, 0); err != nil {
 		return err
 	}
 

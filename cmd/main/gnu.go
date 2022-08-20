@@ -6,7 +6,7 @@ import (
 )
 
 // Creates a file if it doesnt exist
-func CreateFile(text string, filePath string) error {
+func NewFile(text string, filePath string) error {
 	if fileExists := FileExists(filePath); fileExists {
 		return nil
 	}

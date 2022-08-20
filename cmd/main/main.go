@@ -9,18 +9,16 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+
 func main() {
 
-	config := &Config{Root: os.Getenv("ZET")}
-	history := &History{Root: os.Getenv("ZET")}
-
 	// initialize config
-	if err := config.Init(); err != nil {
+	if err := config.Init(os.Getenv("ZET")); err != nil {
 		log.Fatalf("error: failed to initialize config %V", err)
 	}
 
 	// initialize history
-	if err := history.Init(); err != nil {
+	if err := history.Init(os.Getenv("ZET"), ".history"); err != nil {
 		log.Fatalf("error: failed to initialize history %V", err)
 	}
 
@@ -50,11 +48,11 @@ func main() {
 					title := strings.Join(c.Args().Slice(), " ")
 
 					zettel := &Zettel{Title: title}
-					if err := zettel.New(config); err != nil {
+					if err := zettel.New(); err != nil {
 						return err
 					}
 
-					if err := zettel.Open(config, 0); err != nil {
+					if err := zettel.Open(0); err != nil {
 						return err
 					}
 
@@ -66,23 +64,34 @@ func main() {
 				Aliases: []string{"q"},
 				Usage:   "",
 				Action: func(c *cli.Context) error {
-
-					// query := strings.Join(c.Args().Slice(), " ")
-					//
-					//      lines, err := Ripgrep(query, config)
-					//      if err != nil {
-					//        return err
-					//      }
-					//
-					//      fmt.Printf("lines: %v\n", lines)
-
-					path, line, err := Query("", config)
+					path, line, err := Query("")
 					if err != nil {
 						return err
 					}
 
 					zettel := &Zettel{Path: path}
-					if err := zettel.Open(config, line); err != nil {
+					if err := zettel.Open(line); err != nil {
+						return err
+					}
+
+					return nil
+				},
+			},
+			{
+				Name:    "last",
+				Aliases: []string{"l"},
+				Usage:   "",
+				Action: func(c *cli.Context) error {
+					if err := history.Read(); err != nil {
+						return err
+					}
+
+					zettel := &Zettel{Path: history.Lines[len(history.Lines)-1]}
+					if err := zettel.Read(); err != nil {
+						return err
+					}
+
+					if err := zettel.Open(0); err != nil {
 						return err
 					}
 
@@ -94,7 +103,7 @@ func main() {
 				Aliases: []string{"h"},
 				Usage:   "",
 				Action: func(c *cli.Context) error {
-					path, err := history.Query(config)
+					path, err := history.Query()
 					if err != nil {
 						return err
 					}
@@ -102,11 +111,11 @@ func main() {
 					zettel := &Zettel{Path: path}
 
 					// validate zettel
-					if err := zettel.Read(config); err != nil {
+					if err := zettel.Read(); err != nil {
 						return err
 					}
 
-					if err := zettel.Open(config, 0); err != nil {
+					if err := zettel.Open(0); err != nil {
 						return err
 					}
 
@@ -151,7 +160,7 @@ func main() {
 						Name:  "edit",
 						Usage: "",
 						Action: func(c *cli.Context) error {
-							if err := history.Open(config); err != nil {
+							if err := history.Open(); err != nil {
 								return err
 							}
 
@@ -180,15 +189,15 @@ func main() {
 
 					zettel := &Zettel{Path: path}
 
-					if err := zettel.Read(config); err != nil {
+					if err := zettel.Read(); err != nil {
 						return err
 					}
 
-					if err := zettel.Repair(config, history); err != nil {
+					if err := zettel.Repair(); err != nil {
 						return err
 					}
 
-					if err := zettel.Open(config, 0); err != nil {
+					if err := zettel.Open(0); err != nil {
 						return err
 					}
 
