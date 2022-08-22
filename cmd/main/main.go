@@ -84,6 +84,11 @@ func main() {
 						}
 					}
 
+          // Open the zettel that the links were written
+					if err := zettel.Open(0); err != nil {
+						return err
+					}
+
 					return nil
 				},
 			},

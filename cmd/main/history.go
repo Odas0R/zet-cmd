@@ -51,8 +51,9 @@ func (h *History) Query() (*Zettel, error) {
 
 	for _, line := range lines {
 		zet := &Zettel{Path: line}
-		if err := zet.Read(); err != nil {
-			return &Zettel{}, err
+
+		if err := zet.ReadLines(); err != nil {
+			return nil, err
 		}
 
 		// TODO: might wanna "columnize" e.g.  fmt.Sprintf(%s | %s, col1, col2)
@@ -87,11 +88,12 @@ func (h *History) QueryMany() ([]*Zettel, error) {
 
 	for _, line := range lines {
 		zet := &Zettel{Path: line}
-		if err := zet.Read(); err != nil {
-			return []*Zettel{}, err
+
+		if err := zet.ReadLines(); err != nil {
+			return nil, err
 		}
 
-    // Show the minutes ago the file was opened!!
+		// Show the minutes ago the file was opened!!
 
 		// TODO: might wanna "columnize" e.g.  fmt.Sprintf(%s | %s, col1, col2)
 		titles = append(titles, color.UYellow(zet.Lines[0]))
@@ -114,9 +116,9 @@ func (h *History) QueryMany() ([]*Zettel, error) {
 }
 
 func (h *History) Insert(zettel *Zettel) error {
-  if !zettel.IsValid() {
-    return errors.New("error: given zettel was not valid")
-  }
+	if !zettel.IsValid() {
+		return errors.New("error: given zettel was not valid")
+	}
 
 	if err := h.Read(); err != nil {
 		return err
@@ -126,7 +128,7 @@ func (h *History) Insert(zettel *Zettel) error {
 		return errors.New("error: history cannot have more than 50 zettels")
 	}
 
-	h.Lines = append([]string{zettel.Path} , h.Lines...)
+	h.Lines = append([]string{zettel.Path}, h.Lines...)
 
 	if err := h.Write(); err != nil {
 		return err
@@ -136,9 +138,9 @@ func (h *History) Insert(zettel *Zettel) error {
 }
 
 func (h *History) Delete(zettel *Zettel) error {
-  if !zettel.IsValid() {
-    return errors.New("error: zettel invalid")
-  }
+	if !zettel.IsValid() {
+		return errors.New("error: zettel invalid")
+	}
 
 	lines, err := ReadLines(h.Path)
 	if err != nil {

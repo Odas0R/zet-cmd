@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"text/template"
@@ -98,7 +99,8 @@ func (z *Zettel) ReadMetadata() error {
 		return err
 	}
 
-	idStr, ok := MatchSubstring(".", ".", z.Path)
+	fileName := filepath.Base(z.Path)
+	idStr, ok := MatchSubstring(".", ".", fileName)
 	if !ok {
 		return errors.New("error: zettel has an invalid id")
 	}
@@ -111,7 +113,7 @@ func (z *Zettel) ReadMetadata() error {
 	z.ID = id
 	z.Title = strings.Replace(z.Lines[0], "# ", "", 1)
 	z.Slug = slug.Make(z.Title)
-	z.FileName = fmt.Sprintf("%s.%d.md", z.Slug, z.ID)
+	z.FileName = fileName
 
 	foldersNames := strings.Split(z.Path, "/")
 	z.Type = foldersNames[len(foldersNames)-2]

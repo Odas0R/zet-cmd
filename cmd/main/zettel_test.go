@@ -10,6 +10,21 @@ import (
 )
 
 func TestZettel(t *testing.T) {
+	t.Run("can get zettel id from a path", func(t *testing.T) {
+		result, ok := MatchSubstring(".", ".", "/home/odas0r/zet/something/else/using-tags-on-your-zettelkasten.782490819082442123123.md")
+		assert.Equal(t, ok, true, "found a match")
+		assert.Equal(t, result, "782490819082442123123", "result is the zettel id")
+
+		_, ok = MatchSubstring(".", ".", "/home/odas0r/zet/something/else/using-tags-on-your-zettelkasten782490819082442.md")
+		assert.Equal(t, ok, false, "didn't find a match")
+
+		_, ok = MatchSubstring(".", ".", "/home/odas0r/zet/something/else/using-tags-on-your-zettelkasten.782490819082442md")
+		assert.Equal(t, ok, false, "didn't find a match")
+
+		result, _ = MatchSubstring("(", ")", "- [sfasfasfasf](/home/odas0r/zet/something/else/using-tags-on-your-zettelkasten.782490819082442.md)")
+		assert.Equal(t, result, "/home/odas0r/zet/something/else/using-tags-on-your-zettelkasten.782490819082442.md", "result is the same as given path")
+	})
+
 	t.Run("can create a zettel", func(t *testing.T) {
 		z1 := &Zettel{ID: 1, Title: "Title example"}
 		z2 := &Zettel{ID: 2, Title: "Title example"}
@@ -277,8 +292,6 @@ func TestZettel(t *testing.T) {
 		z2.ReadLinks()
 		z3.ReadLinks()
 		z4.ReadLinks()
-
-		fmt.Printf("strings.Join(z2.Lines, \"\n\"): %v\n", strings.Join(z2.Lines, "\n"))
 
 		assert.Equal(t, len(z2.Links), 0, "z2 should have no links")
 		assert.Equal(t, len(z3.Links), 0, "z3 should have no links")
