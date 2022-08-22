@@ -11,7 +11,8 @@ The idea is to be able to:
 4. Auto generate tags for zettels
 5. Export data for static site generation _SSG_
 
-The possibilities here are many. I'll be adding specific features so
+The possibilities here are many. I'll add more specific features in the future
+and log what works and doesn't work for me.
 
 ## Why Go and not Bash?
 
