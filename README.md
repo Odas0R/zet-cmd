@@ -1,6 +1,6 @@
 # Zettelkasten under a Terminal
 
-This is just a public repo, you make take some ideas from it since it is not
+This is just a public repo, you may take some ideas from it since it is not
 extensible.
 
 The idea is to be able to:
