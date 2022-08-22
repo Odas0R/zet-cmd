@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+if [[ ! -x "$(command -v rg)" ]]; then
+  echo "You need to install rg"
+  exit 1
+fi
+
+zettelId=$1
+fleetPath=$2
+permanentPath=$3
+
+while IFS=":" read -ra lines; do
+  file="${lines[0]}"
+  number="${lines[1]}"
+  echo "$number:$file"
+done < <(
+  rg "^*.$zettelId.*\$" "$fleetPath" "$permanentPath" --line-number
+)
