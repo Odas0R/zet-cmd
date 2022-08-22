@@ -1,34 +1,21 @@
-# Zettelkasten command [Under Development 🚧]
+# Zettelkasten under a Terminal
 
-A personal zettelkasten program.
+This is just a public repo, you make take some ideas from it since it is not
+extensible.
 
-Currently works on MacOS, and suits my needs, but currently it is not
-extensible (can't be used in other environments, can't add custom
-editors, etc).
+The idea is to be able to:
 
-### Full Text Search Implementation (for fun purposes)
+1. Query a zettel
+2. Create links between zettels
+3. Intuitive backlog and history
+4. Auto generate tags for zettels
+5. Export data for static site generation _SSG_
 
-1. Use rg to full text search your notes, then render the html
-   corresponding that fetch, use `htmx` to help you achieve this
-   behaviour
+The possibilities here are many. I'll be adding specific features so
 
+## Why Go and not Bash?
 
-### Dependencies:
+I've tried bash and it was a nightmare, a lot of complexity. Go makes it
+maintainable, and extensible, and also it's faster.
 
-- `nvr`
-- `rg`
-
-## Checklist
-
-- [x] new
-- [x] query
-- [ ] backlog
-- [ ] permanent
-- [ ] link
-- [ ] history
-- [ ] history.prev
-- [ ] history.insert
-- [ ] fix
-- [ ] journal
-- [ ] journal.prev
-- [ ] status
+Now a days, building a CLI is easy, and _go makes it portable to every system._
