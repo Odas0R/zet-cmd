@@ -134,7 +134,7 @@ func TestZettel(t *testing.T) {
 		assert.Equal(t, z1.Links[0].Path, z2.Path, "z2 is linked to z1")
 		assert.Equal(t, z1.Links[1].Path, z3.Path, "z3 is linked to z1")
 
-    z1.ReadLinks()
+		z1.ReadLinks()
 
 		assert.Equal(t, strings.Join(z1.Lines, "\n"), strings.Join(expectedLines, "\n"), "file should have correct format")
 		assert.Equal(t, len(z1.Links), 2, "z1 has 2 links")
