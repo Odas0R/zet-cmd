@@ -2,7 +2,6 @@ package grep
 
 import (
 	"bufio"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -10,26 +9,32 @@ import (
 )
 
 type Result struct {
-	FileName string
+	Path string
 	LineNr   int
 }
 
 func findPattern(file *os.File, pattern string) ([]*Result, bool) {
 	results := []*Result{}
-	lineIdx := 0
+	lineIdx := 1
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		lineIdx++
 		if strings.Contains(line, pattern) {
 			result := &Result{
-				FileName: file.Name(),
+				Path: file.Name(),
 				LineNr:   lineIdx,
 			}
 			results = append(results, result)
 		}
+		lineIdx++
 	}
+
+	if err := file.Close(); err != nil {
+		log.Fatalf("error: failed to close file socket %v",
+			err)
+	}
+
 	return results, len(results) > 0
 }
 
@@ -55,13 +60,16 @@ func Grep(pattern string, dirnames []string, results []*Result) ([]*Result, erro
 		}
 		for _, file := range files {
 			if file.IsDir() {
-				Grep(pattern, []string{dirname + "/" + file.Name()}, results)
-				continue
+				r, err := Grep(pattern, []string{dirname + "/" + file.Name()}, results)
+				if err != nil {
+					log.Fatalf("error: %v", err)
+				}
+
+				results = append(results, r...)
 			}
 
 			filePath := dirname + "/" + file.Name()
 			found, err := find(pattern, filePath)
-			fmt.Printf("found: %v\n", found[0].LineNr)
 			if err != nil {
 				log.Fatalf("error: %v", err)
 			}

@@ -4,14 +4,17 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/odas0r/zet/cmd/grep"
 )
 
-func Query(initial string) (string, int, error) {
-	cmd := exec.Command("/bin/bash", config.Scripts.Query, initial, config.Sub.Fleet, config.Sub.Permanent)
+func Query(query string) (string, int, error) {
+	cmd := exec.Command("/bin/bash", config.Scripts.Query, query, config.Sub.Fleet, config.Sub.Permanent)
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
 
@@ -29,6 +32,17 @@ func Query(initial string) (string, int, error) {
 	path := str[1]
 
 	return strings.TrimSpace(path), lineNr, nil
+}
+
+func Grep(pattern string) ([]*grep.Result, bool) {
+	directories := []string{config.Sub.Fleet, config.Sub.Permanent}
+
+	results, err := grep.Grep(pattern, directories, []*grep.Result{})
+	if err != nil {
+		log.Fatalf("error: failed to grep %v", err)
+	}
+
+	return results, len(results) > 1
 }
 
 func Fzf(data string, layout string, prompt string) (string, error) {
@@ -57,22 +71,6 @@ func FzfMultipleSelection(data string, layout string, prompt string) ([]string, 
 	outputArr := strings.Split(strings.TrimSpace(bytes.NewBuffer(output).String()), "\n")
 
 	return outputArr, nil
-}
-
-func GrepLinksById(id int64) ([]string, error) {
-	cmd := exec.Command("/bin/bash", config.Scripts.FindLinks, fmt.Sprintf("%d", id), config.Sub.Fleet, config.Sub.Permanent)
-	cmd.Stdin = os.Stdin
-	cmd.Stderr = os.Stderr
-
-	data, err := cmd.Output()
-	if err != nil {
-		return []string{}, err
-	}
-
-	entries := strings.Split(bytes.NewBuffer(data).String(), "\n")
-	entries = entries[:len(entries)-1] // remove last element
-
-	return entries, nil
 }
 
 func Edit(path string, lineNr int) error {

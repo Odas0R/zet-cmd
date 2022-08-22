@@ -109,6 +109,8 @@ func TestZettel(t *testing.T) {
 			"",
 		}
 		assert.Equal(t, strings.Join(z1.Lines, "\n"), strings.Join(expectedLines, "\n"), "file should have correct format")
+		assert.Equal(t, len(z1.Links), 1, "z1 has 2 links")
+		assert.Equal(t, z1.Links[0].Path, z2.Path, "z2 is linked to z1")
 
 		//
 		// Link 2: z1 --> z3
@@ -128,6 +130,36 @@ func TestZettel(t *testing.T) {
 		}
 
 		assert.Equal(t, strings.Join(z1.Lines, "\n"), strings.Join(expectedLines, "\n"), "file should have correct format")
+		assert.Equal(t, len(z1.Links), 2, "z1 has 2 links")
+		assert.Equal(t, z1.Links[0].Path, z2.Path, "z2 is linked to z1")
+		assert.Equal(t, z1.Links[1].Path, z3.Path, "z3 is linked to z1")
+
+    z1.ReadLinks()
+
+		assert.Equal(t, strings.Join(z1.Lines, "\n"), strings.Join(expectedLines, "\n"), "file should have correct format")
+		assert.Equal(t, len(z1.Links), 2, "z1 has 2 links")
+		assert.Equal(t, z1.Links[0].Path, z2.Path, "z2 is linked to z1")
+		assert.Equal(t, z1.Links[1].Path, z3.Path, "z3 is linked to z1")
+
+		//
+		// Link 2: z3 --> z2
+		//
+		z3.Link(z2)
+
+		expectedLines = []string{
+			"# Title",
+			"",
+			"## Bibliography",
+			"",
+			"## Links",
+			"",
+			fmt.Sprintf("- [%s](%s)", z2.Title, z2.Path),
+			"",
+		}
+
+		assert.Equal(t, strings.Join(z3.Lines, "\n"), strings.Join(expectedLines, "\n"), "file should have correct format")
+		assert.Equal(t, len(z3.Links), 1, "z1 has 2 links")
+		assert.Equal(t, z3.Links[0].Path, z2.Path, "z2 is linked to z3")
 	})
 
 	t.Run("cant link same zettel twice", func(t *testing.T) {
@@ -230,9 +262,6 @@ func TestZettel(t *testing.T) {
 		z3.Link(z1)
 		z4.Link(z2)
 
-		z2.ReadLinks()
-		z3.ReadLinks()
-		z4.ReadLinks()
 		assert.Equal(t, len(z2.Links), 1, "z2 should have one links")
 		assert.Equal(t, len(z3.Links), 1, "z3 should have one links")
 		assert.Equal(t, len(z4.Links), 1, "z4 should have one links")
@@ -240,22 +269,17 @@ func TestZettel(t *testing.T) {
 		//
 		// Delete
 		//
-    z1.Delete()
+		z1.Delete()
 
 		ok := z1.IsValid()
 		assert.Equal(t, ok, false, "zettel is not valid")
 
-		z2.ReadLines()
-		z3.ReadLines()
-		z4.ReadLines()
-
-    fmt.Printf("z2.Lines: %v\n", z2.Lines)
-    fmt.Printf("z3.Lines: %v\n", z3.Lines)
-    fmt.Printf("z4.Lines: %v\n", z4.Lines)
-
 		z2.ReadLinks()
 		z3.ReadLinks()
 		z4.ReadLinks()
+
+		fmt.Printf("strings.Join(z2.Lines, \"\n\"): %v\n", strings.Join(z2.Lines, "\n"))
+
 		assert.Equal(t, len(z2.Links), 0, "z2 should have no links")
 		assert.Equal(t, len(z3.Links), 0, "z3 should have no links")
 		assert.Equal(t, len(z4.Links), 1, "z4 should have no links")

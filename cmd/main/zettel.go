@@ -12,7 +12,6 @@ import (
 
 	"github.com/gosimple/slug"
 	"github.com/samber/lo"
-	"golang.org/x/exp/slices"
 )
 
 type Zettel struct {
@@ -91,6 +90,10 @@ func (z *Zettel) Read() error {
 }
 
 func (z *Zettel) ReadMetadata() error {
+	if !z.IsValid() {
+		return errors.New("error: invalid zettel")
+	}
+
 	if err := z.ReadLines(); err != nil {
 		return err
 	}
@@ -125,21 +128,25 @@ func (z *Zettel) ReadLinks() error {
 		return err
 	}
 
-	var isOnLinksSection = false
-	for _, line := range z.Lines {
-		if strings.Contains(line, "## Links") {
-			isOnLinksSection = true
-		}
+	linkSectionIndex := lo.IndexOf(z.Lines, "## Links")
+	if linkSectionIndex == -1 {
+		return errors.New("error: there is no ## Links section on given zettel")
+	}
 
-		if isOnLinksSection {
+	links := []*Zettel{}
+	for index, line := range z.Lines {
+		if index > linkSectionIndex {
 			path, ok := ValidateLinkPath(line)
-			zet := &Zettel{Path: path}
-
 			if ok {
-				z.Links = append(z.Links, zet)
+				zet := &Zettel{Path: path}
+				if zet.IsValid() {
+					links = append(links, zet)
+				}
 			}
 		}
 	}
+
+	z.Links = links
 
 	return nil
 }
@@ -186,13 +193,14 @@ func (z *Zettel) Link(zettel *Zettel) error {
 			path, ok := ValidateLinkPath(line)
 			if ok {
 				zet := &Zettel{Path: path}
-				if err := zet.ReadMetadata(); err != nil {
-					return err
+				if zet.IsValid() {
+					if err := zet.ReadMetadata(); err != nil {
+						return err
+					}
+
+					link := fmt.Sprintf("- [%s](%s)", zet.Title, zet.Path)
+					links = append(links, link)
 				}
-
-				link := fmt.Sprintf("- [%s](%s)", zet.Title, zet.Path)
-
-				links = append(links, link)
 			}
 		}
 	}
@@ -201,15 +209,20 @@ func (z *Zettel) Link(zettel *Zettel) error {
 	// Format links and insert the new link
 	//
 
-	lines := z.Lines[0 : linkSectionIndex+1]
+	lines := z.Lines[:linkSectionIndex+1]
 	lines = append(lines, "") // add a <new-line>
-	lines = append(lines, links[:]...)
+	lines = append(lines, links...)
 	lines = append(lines, linkToInsert) // add link to the end of the file
-	lines = append(lines, "")           // add a <new-line> to the end of the file
+	lines = append(lines, "")           // add a <new-line>
+	lines = append(lines, "")           // add a <new-line>
 
 	z.Lines = lines
 
 	if err := z.Write(); err != nil {
+		return err
+	}
+
+	if err := z.ReadLinks(); err != nil {
 		return err
 	}
 
@@ -244,23 +257,16 @@ func (z *Zettel) Repair() error {
 		return err
 	}
 
-	results, err := GrepLinksById(z.ID)
-	if err != nil {
-		return err
+	results, ok := Grep(strconv.FormatInt(z.ID, 10))
+	if !ok {
+		return errors.New("error: there are no matches with the given ID")
 	}
 
 	//
 	// Fix all dity links
 	//
-	for _, entry := range results {
-		values := strings.Split(entry, ":")
-
-		lineNr, err := strconv.ParseInt(values[0], 10, 64)
-		if err != nil {
-			return err
-		}
-
-		zettel := &Zettel{Path: values[1]}
+	for _, result := range results {
+		zettel := &Zettel{Path: result.Path}
 		ok := zettel.IsValid()
 		if !ok {
 			return errors.New("error: file path on link is not a valid zettel")
@@ -270,7 +276,7 @@ func (z *Zettel) Repair() error {
 			return err
 		}
 
-		index := lineNr - 1
+		index := result.LineNr - 1
 		zettel.Lines[index] = fmt.Sprintf("- [%s](%s)", z.Title, z.Path)
 
 		if err := zettel.Write(); err != nil {
@@ -321,30 +327,27 @@ func (z *Zettel) Delete() error {
 		return err
 	}
 
-	entries, err := GrepLinksById(z.ID)
-	if err != nil {
-		return err
+	results, ok := Grep(strconv.FormatInt(z.ID, 10))
+	if !ok {
+		return errors.New("error: there are no matches with the given ID")
 	}
 
 	//
-	// Fix all dity links
+	// Fix all dirty links
 	//
-	for _, entry := range entries {
-		values := strings.Split(entry, ":")
-
-		lineNr, err := strconv.ParseInt(values[0], 10, 64)
-		if err != nil {
-			return err
+	for _, result := range results {
+		zettel := &Zettel{Path: result.Path}
+		ok := zettel.IsValid()
+		if !ok {
+			return errors.New("error: file path on link is not a valid zettel")
 		}
-
-		zettel := &Zettel{Path: values[1]}
 
 		if err := zettel.ReadLines(); err != nil {
 			return err
 		}
 
-		index := lineNr - 1
-		zettel.Lines = slices.Delete(zettel.Lines, int(index), int(index+1))
+		index := result.LineNr - 1
+		zettel.Lines = append(zettel.Lines[:index], zettel.Lines[index+1:]...)
 
 		if err := zettel.Write(); err != nil {
 			return err
@@ -405,7 +408,7 @@ func (z *Zettel) Permanent() error {
 
 func (z *Zettel) Open(lineNr int) error {
 	if !z.IsValid() {
-		return errors.New("error: invalid zettel")
+		return errors.New("error: zettel is not valid")
 	}
 
 	if err := Edit(z.Path, lineNr); err != nil {

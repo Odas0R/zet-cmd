@@ -124,7 +124,7 @@ func main() {
 					for _, file := range files {
 						zettel := &Zettel{Path: fmt.Sprintf("%s/%s", config.Sub.Fleet, file.Name())}
 
-						err := zettel.Read()
+						err := zettel.ReadLines()
 						if err != nil {
 							continue
 						}
@@ -164,11 +164,7 @@ func main() {
 						return err
 					}
 
-					zettel := &Zettel{Path: history.Lines[len(history.Lines)-1]}
-					if err := zettel.Read(); err != nil {
-						return err
-					}
-
+					zettel := &Zettel{Path: history.Lines[0]}
 					if err := zettel.Open(0); err != nil {
 						return err
 					}
@@ -202,11 +198,7 @@ func main() {
 
 							path := strings.Join(c.Args().Slice(), "")
 
-              zettel := &Zettel{Path: path}
-              if err := zettel.Read(); err != nil {
-                return err
-              }
-              
+							zettel := &Zettel{Path: path}
 							if err := history.Insert(zettel); err != nil {
 								return err
 							}
@@ -224,11 +216,7 @@ func main() {
 
 							path := strings.Join(c.Args().Slice(), "")
 
-              zettel := &Zettel{Path: path}
-              if err := zettel.Read(); err != nil {
-                return err
-              }
-
+							zettel := &Zettel{Path: path}
 							if err := history.Delete(zettel); err != nil {
 								return err
 							}
@@ -260,10 +248,6 @@ func main() {
 
 					path := strings.Join(c.Args().Slice(), "")
 					zettel := &Zettel{Path: path}
-
-					if err := zettel.Read(); err != nil {
-						return err
-					}
 
 					if err := zettel.Delete(); err != nil {
 						return err
@@ -300,12 +284,7 @@ func main() {
 					}
 
 					path := strings.Join(c.Args().Slice(), "")
-
 					zettel := &Zettel{Path: path}
-
-					if err := zettel.Read(); err != nil {
-						return err
-					}
 
 					if err := zettel.Repair(); err != nil {
 						return err
