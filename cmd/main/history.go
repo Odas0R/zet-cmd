@@ -1,11 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os/exec"
 	"strings"
 
 	"github.com/odas0r/zet/cmd/color"
@@ -41,10 +39,10 @@ func (h *History) Init(root string, fileName string) error {
 	return nil
 }
 
-func (h *History) Query() (string, error) {
+func (h *History) Query() (*Zettel, error) {
 	lines, err := ReadLines(h.Path)
 	if err != nil {
-		return "", err
+		return &Zettel{}, err
 	}
 
 	// transform into titles
@@ -54,75 +52,106 @@ func (h *History) Query() (string, error) {
 	for _, line := range lines {
 		zet := &Zettel{Path: line}
 		if err := zet.Read(); err != nil {
-			return "", err
+			return &Zettel{}, err
 		}
 
-		titles = append(titles, fmt.Sprintf("%s | %s", color.UYellow(zet.Lines[0]), strings.Join(zet.Tags, " ")))
+		// TODO: might wanna "columnize" e.g.  fmt.Sprintf(%s | %s, col1, col2)
+		titles = append(titles, color.UYellow(zet.Lines[0]))
 		zettels = append(zettels, zet)
 	}
 
-	cmd := exec.Command("/bin/bash", config.Scripts.Fzf, columnize.SimpleFormat(titles), "70%")
-
-	output, err := cmd.Output()
+	output, err := Fzf(columnize.SimpleFormat(titles), "70%", "History > ")
 	if err != nil {
-		return "", err
+		return &Zettel{}, err
 	}
 
-	outputStr := strings.TrimSpace(bytes.NewBuffer(output).String())
-	zettelPath, ok := lo.Find(zettels, func(zet *Zettel) bool {
-		return zet.Lines[0] == outputStr
+	zettel, ok := lo.Find(zettels, func(zet *Zettel) bool {
+		return strings.HasPrefix(output, zet.Lines[0])
 	})
-
 	if !ok {
-		return "", nil
+		return &Zettel{}, nil
 	}
 
-	return zettelPath.Path, nil
+	return zettel, nil
 }
 
-func (h *History) Insert(path string) error {
-	if path == "" {
-		return errors.New("error: path cannot be empty")
-	}
-
-	// Validate zettel
-	zettel := &Zettel{Path: path}
-	if err := zettel.Read(); err != nil {
-		return err
-	}
-
+func (h *History) QueryMany() ([]*Zettel, error) {
 	lines, err := ReadLines(h.Path)
 	if err != nil {
+		return []*Zettel{}, err
+	}
+
+	// transform into titles
+	var titles = make([]string, 0, len(lines))
+	var zettels = make([]*Zettel, 0, len(lines))
+
+	for _, line := range lines {
+		zet := &Zettel{Path: line}
+		if err := zet.Read(); err != nil {
+			return []*Zettel{}, err
+		}
+
+    // Show the minutes ago the file was opened!!
+
+		// TODO: might wanna "columnize" e.g.  fmt.Sprintf(%s | %s, col1, col2)
+		titles = append(titles, color.UYellow(zet.Lines[0]))
+		zettels = append(zettels, zet)
+	}
+
+	output, err := FzfMultipleSelection(columnize.SimpleFormat(titles), "70%", "History > ")
+	if err != nil {
+		return []*Zettel{}, err
+	}
+
+	zettels = lo.Filter(zettels, func(zet *Zettel, _ int) bool {
+		_, ok := lo.Find(output, func(path string) bool {
+			return strings.HasPrefix(path, zet.Lines[0])
+		})
+		return ok
+	})
+
+	return zettels, nil
+}
+
+func (h *History) Insert(zettel *Zettel) error {
+  if !zettel.IsValid() {
+    return errors.New("error: given zettel was not valid")
+  }
+
+	if err := h.Read(); err != nil {
 		return err
 	}
 
-	// append the new file
-	lines = lo.Filter(lines, func(line string, i int) bool {
-		return line != path
-	})
-	lines = append(lines, path)
+	if len(h.Lines) == 50 {
+		return errors.New("error: history cannot have more than 50 zettels")
+	}
 
-	// write to the history
-	output := strings.Join(lines, "\n")
-	if err := ioutil.WriteFile(h.Path, []byte(output), 0644); err != nil {
+	h.Lines = append([]string{zettel.Path} , h.Lines...)
+
+	if err := h.Write(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (h *History) Delete(path string) error {
+func (h *History) Delete(zettel *Zettel) error {
+  if !zettel.IsValid() {
+    return errors.New("error: zettel invalid")
+  }
+
 	lines, err := ReadLines(h.Path)
 	if err != nil {
 		return err
 	}
 
 	lines = lo.Filter(lines, func(line string, i int) bool {
-		return line != path
+		return line != zettel.Path
 	})
 
-	output := strings.Join(lines, "\n")
-	if err := ioutil.WriteFile(h.Path, []byte(output), 0644); err != nil {
+	h.Lines = lines
+
+	if err := h.Write(); err != nil {
 		return err
 	}
 
@@ -141,8 +170,28 @@ func (h *History) Read() error {
 	return nil
 }
 
+func (h *History) Write() error {
+	output := strings.Join(h.Lines, "\n")
+
+	if err := ioutil.WriteFile(h.Path, []byte(output), 0644); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *History) Clear() error {
+	h.Lines = []string{}
+
+	if err := h.Write(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (h *History) Open() error {
-	if err := Open(h.Path, 0); err != nil {
+	if err := Edit(h.Path, 0); err != nil {
 		return err
 	}
 

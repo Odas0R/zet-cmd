@@ -18,9 +18,9 @@ func NotEqual(t *testing.T, got interface{}, expected interface{}, message strin
 func assert(t *testing.T, got interface{}, expected interface{}, message string, expectation bool) {
 	errorMessage := []string{
     "\n",
-		fmt.Sprintf("message: | \"%s\"", message),
-		fmt.Sprintf("expected: | %s", expected),
-		fmt.Sprintf("got: | %s", got),
+		fmt.Sprintf("message: | \"%v\"", message),
+		fmt.Sprintf("expected: | %v", expected),
+		fmt.Sprintf("got: | %v", got),
 	}
 
 	formattedErrorMessage := columnize.SimpleFormat(errorMessage)

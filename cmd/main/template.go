@@ -11,8 +11,6 @@ var zetTmpl = `# {{ .Title }}
 ## Bibliography
 
 ## Links
-
-#example
 `
 
 // file: journal.tmpl.md

@@ -17,9 +17,11 @@ type Sub struct {
 
 type Scripts struct {
 	Fzf       string
+	FzfMulti  string
 	Open      string
 	FindLinks string
 	Query     string
+	Clear     string
 	Ripgrep   string
 }
 
@@ -34,7 +36,7 @@ func (c *Config) Init(configPath string) error {
 		return errors.New("error: config path cannot be an empty string")
 	}
 
-  c.Path = configPath
+	c.Path = configPath
 
 	// set paths of config
 	c.Sub.Fleet = path.Join(c.Path, "fleet")
@@ -48,7 +50,9 @@ func (c *Config) Init(configPath string) error {
 
 	c.Scripts.Query = path.Join(zetExecutablePath, "scripts/query")
 	c.Scripts.Fzf = path.Join(zetExecutablePath, "scripts/fzf")
+	c.Scripts.FzfMulti = path.Join(zetExecutablePath, "scripts/fzf-multi")
 	c.Scripts.Open = path.Join(zetExecutablePath, "scripts/open")
+	c.Scripts.Clear = path.Join(zetExecutablePath, "scripts/clear")
 	c.Scripts.FindLinks = path.Join(zetExecutablePath, "scripts/find-links")
 	c.Scripts.Ripgrep = path.Join(zetExecutablePath, "scripts/ripgrep")
 

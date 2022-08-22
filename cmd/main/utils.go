@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
 func FileExists(filePath string) bool {
@@ -26,6 +27,12 @@ func ReadLines(filePath string) ([]string, error) {
 		line := scanner.Text()
 		lines = append(lines, line)
 	}
+
+	// close file descriptor
+	if err := file.Close(); err != nil {
+		return nil, err
+	}
+
 	return lines, nil
 }
 
@@ -46,3 +53,18 @@ func AppendLine(path, str string, index int) error {
 
 	return ioutil.WriteFile(path, []byte(fileContent), 0644)
 }
+
+func MatchSubstring(startS string, endS string, str string) (result string, found bool) {
+	s := strings.Index(str, startS)
+	if s == -1 {
+		return result, false
+	}
+	newS := str[s+len(startS):]
+	e := strings.Index(newS, endS)
+	if e == -1 {
+		return result, false
+	}
+	result = newS[:e]
+	return result, true
+}
+

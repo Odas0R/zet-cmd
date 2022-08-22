@@ -1,250 +1,263 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
-	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/odas0r/zet/cmd/assert"
-	"github.com/samber/lo"
 )
 
 func TestZettel(t *testing.T) {
 	t.Run("can create a zettel", func(t *testing.T) {
-		zettel := &Zettel{ID: 1, Title: "Title example"}
-		err := zettel.New()
-		assert.Equal(t, err, nil, "zettel.New should not fail")
+		z1 := &Zettel{ID: 1, Title: "Title example"}
+		z2 := &Zettel{ID: 2, Title: "Title example"}
+		z3 := &Zettel{ID: 3, Title: "Title example"}
 
-		zettel = &Zettel{ID: 2, Title: "Title example"}
-		err = zettel.New()
-		assert.Equal(t, err, nil, "zettel.New should not fail")
+		z1.New()
+		z2.New()
+		z3.New()
 
-		zettel = &Zettel{ID: 3, Title: "Title example"}
-		err = zettel.New()
-		assert.Equal(t, err, nil, "zettel.New should not fail")
-	})
+		paths := []string{
+			"/tmp/foo/fleet/title-example.1.md",
+			"/tmp/foo/fleet/title-example.2.md",
+			"/tmp/foo/fleet/title-example.3.md",
+		}
 
-	t.Run("zettel file exists", func(t *testing.T) {
-		zettel := &Zettel{Path: "/tmp/foo/fleet/title-example.2.md"}
-
-		zettelExists := FileExists(zettel.Path)
-		assert.Equal(t, zettelExists, true, "zettel should exist")
+		for _, path := range paths {
+			zettelExists := FileExists(path)
+			assert.Equal(t, zettelExists, true, "zettel should exist")
+		}
 	})
 
 	t.Run("can read a zettel on a given path", func(t *testing.T) {
-		zettel := &Zettel{Path: "/tmp/foo/fleet/title-example.2.md"}
+		zettel := &Zettel{ID: 999, Title: "Title Example"}
+		zettel.New()
 
-		err := zettel.Read()
-		assert.Equal(t, err, nil, "zettel.Read should not fail")
+		zettel = &Zettel{Path: fmt.Sprintf("%s/%s", config.Sub.Fleet, "title-example.999.md")}
 
-		assert.Equal(t, zettel.ID, int64(2), "zettel.ID should be correct")
+		zettel.Read()
+
+		assert.Equal(t, zettel.ID, int64(999), "zettel.ID should be correct")
 		assert.Equal(t, zettel.Type, "fleet", "zettel.Type should be correct")
 		assert.Equal(t, zettel.Slug, "title-example", "zettel.Slug should be correct")
-		assert.Equal(t, zettel.Path, "/tmp/foo/fleet/title-example.2.md", "zettel.Path should be correct")
+		assert.Equal(t, zettel.Path, "/tmp/foo/fleet/title-example.999.md", "zettel.Path should be correct")
 		assert.Equal(t, fmt.Sprintf("# %s", zettel.Title), zettel.Lines[0], "zettel.Title should be on line 0")
-		assert.Equal(t, "#example", zettel.Lines[len(zettel.Lines)-1], "tag #example should be on the last line")
+	})
+
+	t.Run("can validate a link", func(t *testing.T) {
+		z1 := &Zettel{ID: time.Now().UnixNano(), Title: "Title Example"}
+		z2 := &Zettel{ID: time.Now().UnixNano(), Title: "Title Example"}
+
+		z1.New()
+		z2.New()
+
+		//
+		// Validating links
+		//
+
+		link := fmt.Sprintf("- [%s](%s)", z1.Title, z1.Path)
+
+		path, ok := ValidateLinkPath(link)
+		assert.Equal(t, path, z1.Path, "ValidateLink recieved the correct zettel")
+		assert.Equal(t, ok, true, "ValidateLink should be valid")
+
+		link = fmt.Sprintf("- [%s](%s)", z2.Title, z2.Path)
+
+		path, ok = ValidateLinkPath(link)
+		assert.Equal(t, path, z2.Path, "link is of a valid zettel")
+		assert.Equal(t, ok, true, "link should be valid")
+
+		invalidLinks := []string{
+			fmt.Sprintf("- [%s](%s)", z2.Title, "/random/path"),
+			fmt.Sprintf("- [%s](%s", z2.Title, z2.Path),
+			fmt.Sprintf("- [%s]%s)", z2.Title, z2.Path),
+			fmt.Sprintf("- [%s]((((%s)", z2.Title, z2.Path),
+			fmt.Sprintf("- [%s](((%s)))))", z2.Title, z2.Path),
+		}
+
+		for _, link := range invalidLinks {
+			path, ok = ValidateLinkPath(link)
+			assert.Equal(t, path, "", "link path should be empty")
+			assert.Equal(t, ok, false, "link should be invalid")
+		}
 	})
 
 	t.Run("can link a zettel and read his links", func(t *testing.T) {
-		zettelOne := &Zettel{Path: "/tmp/foo/fleet/title-example.1.md"}
-		zettelTwo := &Zettel{Path: "/tmp/foo/fleet/title-example.2.md"}
-		zettelThree := &Zettel{Path: "/tmp/foo/fleet/title-example.3.md"}
+		z1 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
+		z2 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
+		z3 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
+
+		z1.New()
+		z2.New()
+		z3.New()
 
 		//
-		// Read
+		// Link 1: z1 --> z2
 		//
+		z1.Link(z2)
 
-		err := zettelOne.Read()
-		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
-
-		err = zettelTwo.Read()
-		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
-
-		err = zettelThree.Read()
-		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
-
-		//
-		// Link
-		//
-
-		err = zettelOne.Link(zettelTwo)
-		assert.Equal(t, err, nil, "zettelOne should link to zettelTwo")
-
-		err = zettelTwo.Link(zettelOne)
-		assert.Equal(t, err, nil, "zettelTwo should link to zettelOne")
-
-		err = zettelThree.Link(zettelOne)
-		assert.Equal(t, err, nil, "zettelThree should link to zettelOne")
+		expectedLines := []string{
+			"# Title",
+			"",
+			"## Bibliography",
+			"",
+			"## Links",
+			"",
+			fmt.Sprintf("- [%s](%s)", z2.Title, z2.Path),
+			"",
+		}
+		assert.Equal(t, strings.Join(z1.Lines, "\n"), strings.Join(expectedLines, "\n"), "file should have correct format")
 
 		//
-		// Read
+		// Link 2: z1 --> z3
 		//
+		z1.Link(z3)
 
-		err = zettelOne.Read()
-		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
-
-		err = zettelTwo.Read()
-		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
-
-		err = zettelThree.Read()
-		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
-
-		containsLink := func(zettel *Zettel, zettelToLink *Zettel) bool {
-			foundZettelLink := false
-			for _, line := range zettel.Lines {
-				hasLink := strings.Contains(line, zettelToLink.Path)
-				if hasLink {
-					foundZettelLink = hasLink
-				}
-			}
-			return foundZettelLink
+		expectedLines = []string{
+			"# Title",
+			"",
+			"## Bibliography",
+			"",
+			"## Links",
+			"",
+			fmt.Sprintf("- [%s](%s)", z2.Title, z2.Path),
+			fmt.Sprintf("- [%s](%s)", z3.Title, z3.Path),
+			"",
 		}
 
-		assert.Equal(t, zettelOne.Links[0], "/tmp/foo/fleet/title-example.2.md", "zettelOne contains zettelTwo link")
-		assert.Equal(t, zettelTwo.Links[0], "/tmp/foo/fleet/title-example.1.md", "zettelTwo contains zettelOne link")
-		assert.Equal(t, zettelThree.Links[0], "/tmp/foo/fleet/title-example.1.md", "zettelThree contains zettelOne link")
-		assert.Equal(t, containsLink(zettelOne, zettelTwo), true, "zettelOne contains zettelTwo link on zettel.Lines")
-		assert.Equal(t, containsLink(zettelTwo, zettelOne), true, "zettelTwo contains zettelOne link on zettel.Lines")
-		assert.Equal(t, containsLink(zettelThree, zettelOne), true, "zettelThree contains zettelOne link on zettel.Lines")
+		assert.Equal(t, strings.Join(z1.Lines, "\n"), strings.Join(expectedLines, "\n"), "file should have correct format")
 	})
 
 	t.Run("cant link same zettel twice", func(t *testing.T) {
-		zettelOne := &Zettel{Path: "/tmp/foo/fleet/title-example.1.md"}
-		zettelTwo := &Zettel{Path: "/tmp/foo/fleet/title-example.2.md"}
+		z1 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
+		z2 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
 
-		//
-		// Read
-		//
+		z1.New()
+		z2.New()
 
-		err := zettelOne.Read()
-		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
+		err := z1.Link(z1)
+		assert.Equal(t, err.Error(), "error: cannot link the same file", "zettel cannot link himself")
 
-		err = zettelTwo.Read()
-		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
-
-		err = zettelOne.Link(zettelTwo)
-		assert.NotEqual(t, err, nil, "zettelOne.Link should fail")
+		z1.Link(z2)
+		err = z1.Link(z2)
+		assert.Equal(t, err.Error(), "error: cannot have duplicated links", "zettel cannot have duplicated links")
 	})
 
-	t.Run("find-links gives files with the id of the link", func(t *testing.T) {
-		zettelOne := &Zettel{Path: "/tmp/foo/fleet/title-example.1.md"}
-		zettelTwo := &Zettel{Path: "/tmp/foo/fleet/title-example.2.md"}
+	t.Run("can repair zettel links", func(t *testing.T) {
+		z1 := &Zettel{ID: 998, Title: "Title Example"}
+		z2 := &Zettel{ID: time.Now().UnixNano(), Title: "Title Example"}
+		z3 := &Zettel{ID: time.Now().UnixNano(), Title: "Title Example"}
 
-		//
-		// Read
-		//
+		z1.New()
+		z2.New()
+		z3.New()
 
-		err := zettelOne.Read()
-		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
+		z3.Link(z1)
+		z2.Link(z1)
 
-		err = zettelTwo.Read()
-		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
+		// repair the zettel 1
+		z1.WriteLine(0, "# foo bar")
+		z1.Repair()
 
-		cmd := exec.Command("/bin/bash", config.Scripts.FindLinks, "2", config.Sub.Fleet, config.Sub.Permanent)
+		assert.Equal(t, z1.Title, "foo bar", "zettelOne.Title should be correct")
+		assert.Equal(t, z1.Lines[0], "# foo bar", "zettelOne.Lines[0] should be the new title")
+		assert.Equal(t, z1.Slug, "foo-bar", "zettelOne.Slug should be correct")
+		assert.Equal(t, z1.Type, "fleet", "zettelOne.Type should be correct")
+		assert.Equal(t, z1.FileName, "foo-bar.998.md", "zettelOne.FileName should be correct")
+		assert.Equal(t, z1.Path, "/tmp/foo/fleet/foo-bar.998.md", "zettelOne.Path should be correct")
 
-		output, err := cmd.Output()
-		if err != nil {
-			t.Errorf("error: %s", err)
+		z2.ReadLines()
+		z3.ReadLines()
+
+		expectedLines := []string{
+			"# Title Example",
+			"",
+			"## Bibliography",
+			"",
+			"## Links",
+			"",
+			"- [foo bar](/tmp/foo/fleet/foo-bar.998.md)",
 		}
+		assert.Equal(t, strings.Join(z2.Lines, "\n"), strings.Join(expectedLines, "\n"), "zettel z2 should have correct data")
+		assert.Equal(t, strings.Join(z3.Lines, "\n"), strings.Join(expectedLines, "\n"), "zettel z3 should have correct data")
 
-		if len(output) > 0 {
-			links := bytes.NewBuffer(output).String()
-			linkPath := strings.Split(links, ":")[1]
-
-			assert.Equal(t, strings.TrimSpace(linkPath), "/tmp/foo/fleet/title-example.1.md", "find-links should give zettelOne.Path")
-		} else {
-			t.Errorf("error: find-links gave 0 results")
-		}
-
-	})
-
-	t.Run("can repair zettel links (1)", func(t *testing.T) {
-		zettelOne := &Zettel{Path: "/tmp/foo/fleet/title-example.1.md"}
-		zettelTwo := &Zettel{Path: "/tmp/foo/fleet/title-example.2.md"}
-		zettelThree := &Zettel{Path: "/tmp/foo/fleet/title-example.3.md"}
-
-		//
-		// Read
-		//
-
-		err := zettelOne.Read()
-		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
-		err = zettelTwo.Read()
-		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
-		err = zettelThree.Read()
-		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
-
-		// modify the title
-		zettelOne.Lines = lo.ReplaceAll(zettelOne.Lines, zettelOne.Lines[0], "# foo bar")
-
-		// Write
-		err = zettelOne.Write()
-		assert.Equal(t, err, nil, "zettelOne.Write should not fail")
-
-		// Repair zettel
-		err = zettelOne.Repair()
-		assert.Equal(t, err, nil, "zettelOne.Repair should not fail")
-
-		assert.Equal(t, zettelOne.Title, "foo bar", "zettelOne.Title should be correct")
-		assert.Equal(t, zettelOne.Lines[0], "# foo bar", "zettelOne.Lines[0] should be correct")
-		assert.Equal(t, zettelOne.Slug, "foo-bar", "zettelOne.Slug should be correct")
-		assert.Equal(t, zettelOne.Type, "fleet", "zettelOne.Type should be correct")
-		assert.Equal(t, zettelOne.FileName, "foo-bar.1.md", "zettelOne.FileName should be correct")
-		assert.Equal(t, zettelOne.Path, "/tmp/foo/fleet/foo-bar.1.md", "zettelOne.Path should be correct")
-
-		err = zettelTwo.Read()
-		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
-
-		err = zettelThree.Read()
-		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
-
-		containsLink := func(zettel *Zettel, zettelToLink *Zettel) bool {
-			foundZettelLink := false
-			for _, line := range zettel.Lines {
-				hasLink := strings.Contains(line, zettelToLink.Path)
-				if hasLink {
-					foundZettelLink = hasLink
-				}
-			}
-			return foundZettelLink
-		}
-
-		assert.Equal(t, containsLink(zettelTwo, zettelOne), true, "zettelOne is linked to zettelTwo")
-		assert.Equal(t, containsLink(zettelThree, zettelOne), true, "zettelOne is linked to zettelThree")
 	})
 
 	t.Run("can permanent zettel", func(t *testing.T) {
-		zettelOne := &Zettel{Path: "/tmp/foo/fleet/foo-bar.1.md"}
-		zettelTwo := &Zettel{Path: "/tmp/foo/fleet/title-example.2.md"}
-		zettelThree := &Zettel{Path: "/tmp/foo/fleet/title-example.3.md"}
+		z1 := &Zettel{ID: 997, Title: "Title Example"}
+		z2 := &Zettel{ID: time.Now().UnixNano(), Title: "Title Example"}
+		z3 := &Zettel{ID: time.Now().UnixNano(), Title: "Title Example"}
 
-		//
-		// Read
-		//
+		z1.New()
+		z2.New()
+		z3.New()
 
-		err := zettelOne.Read()
-		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
-		err = zettelTwo.Read()
-		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
-		err = zettelThree.Read()
-		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
+		z2.Link(z1)
+		z3.Link(z1)
 
-		err = zettelOne.Permanent()
-		assert.Equal(t, err, nil, "zettelOne.Permanent should not fail")
+		z1.Permanent()
 
-		err = zettelOne.Read()
-		assert.Equal(t, err, nil, "zettelOne.Read should not fail")
-		err = zettelTwo.Read()
-		assert.Equal(t, err, nil, "zettelTwo.Read should not fail")
-		err = zettelThree.Read()
-		assert.Equal(t, err, nil, "zettelThree.Read should not fail")
+		assert.Equal(t, z1.Type, "permanent", "z1.Type should be correct")
+		assert.Equal(t, z1.Path, fmt.Sprintf("%s/title-example.997.md", config.Sub.Permanent), "z1.Path should be correct")
 
-		assert.Equal(t, zettelOne.Type, "permanent", "zettelOne.Type should be correct")
-		assert.Equal(t, zettelOne.Path, "/tmp/foo/permanent/foo-bar.1.md", "zettelOne.Path should be correct")
-		assert.Equal(t, strings.Contains(zettelTwo.Links[0], "foo-bar.1.md"), true, "zettelOne is linked to zettelTwo")
-		assert.Equal(t, strings.Contains(zettelThree.Links[0], "foo-bar.1.md"), true, "zettelOne is linked to zettelThree")
+		z2.Read()
+		z3.Read()
+
+		z2.Links[0].ReadMetadata()
+		z3.Links[0].ReadMetadata()
+
+		assert.Equal(t, z2.Links[0].FileName == "title-example.997.md", true, "z1 is linked to z2")
+		assert.Equal(t, z2.Links[0].Type, "permanent", "z2 link is type permanent")
+
+		assert.Equal(t, z3.Links[0].FileName == "title-example.997.md", true, "z1 is linked to z3")
+		assert.Equal(t, z3.Links[0].Type, "permanent", "z3 link is type permanent")
 	})
 
+	t.Run("can delete zettel", func(t *testing.T) {
+		z1 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
+		z2 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
+		z3 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
+		z4 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
+
+		z1.New()
+		z2.New()
+		z3.New()
+		z4.New()
+
+		z2.Link(z1)
+		z3.Link(z1)
+		z4.Link(z2)
+
+		z2.ReadLinks()
+		z3.ReadLinks()
+		z4.ReadLinks()
+		assert.Equal(t, len(z2.Links), 1, "z2 should have one links")
+		assert.Equal(t, len(z3.Links), 1, "z3 should have one links")
+		assert.Equal(t, len(z4.Links), 1, "z4 should have one links")
+
+		//
+		// Delete
+		//
+    z1.Delete()
+
+		ok := z1.IsValid()
+		assert.Equal(t, ok, false, "zettel is not valid")
+
+		z2.ReadLines()
+		z3.ReadLines()
+		z4.ReadLines()
+
+    fmt.Printf("z2.Lines: %v\n", z2.Lines)
+    fmt.Printf("z3.Lines: %v\n", z3.Lines)
+    fmt.Printf("z4.Lines: %v\n", z4.Lines)
+
+		z2.ReadLinks()
+		z3.ReadLinks()
+		z4.ReadLinks()
+		assert.Equal(t, len(z2.Links), 0, "z2 should have no links")
+		assert.Equal(t, len(z3.Links), 0, "z3 should have no links")
+		assert.Equal(t, len(z4.Links), 1, "z4 should have no links")
+	})
 }

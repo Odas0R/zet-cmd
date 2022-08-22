@@ -1,8 +1,8 @@
 build:
 	rm -f ./zet && go build -o zet ./cmd/main
 test:
-	clear && gotestsum --format testname ./cmd/main ./cmd/assert ./cmd/columnize
+	clear && gotestsum --format standard-verbose ./cmd/main
 watch:
-	find . -name '*.go' | entr -cp richgo test ./cmd/main
+	find . -name '*.go' | entr -cp richgo test ./cmd/grep
 
 .PHONY: build test

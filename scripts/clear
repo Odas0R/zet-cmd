@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+if [[ -S "$NVIM_SOCKET" ]]; then
+  nvim --server "$NVIM_SOCKET" --remote-send ":bdelete<CR>"
+fi
+

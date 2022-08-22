@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+QUERY="$1"
+LAYOUT="$2"
+PROMPT="$3"
+
+
+echo "$QUERY" | fzf-tmux -p "$LAYOUT" --prompt "$PROMPT" --ansi --multi

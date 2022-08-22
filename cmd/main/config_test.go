@@ -8,12 +8,12 @@ import (
 
 func TestConfig(t *testing.T) {
 	t.Run("config has the right values", func(t *testing.T) {
-		assert.Equal(t, "/tmp/foo", config.Path, "config.root must be correct")
-		assert.Equal(t, "/tmp/foo/assets", config.Sub.Assets, "config.sub.assets must be correct")
-		assert.Equal(t, "/tmp/foo/journal", config.Sub.Journal, "config.sub.journal must be correct")
-		assert.Equal(t, "/tmp/foo/templates", config.Sub.Templates, "config.sub.templates must be correct")
-		assert.Equal(t, "/tmp/foo/permanent", config.Sub.Permanent, "config.sub.permanent must be correct")
-		assert.Equal(t, "/tmp/foo/fleet", config.Sub.Fleet, "config.sub.fleet must be correct")
+		assert.Equal(t, config.Path, "/tmp/foo", "config.root must be correct")
+		assert.Equal(t, config.Sub.Assets, "/tmp/foo/assets", "config.sub.assets must be correct")
+		assert.Equal(t, config.Sub.Journal, "/tmp/foo/journal", "config.sub.journal must be correct")
+		assert.Equal(t, config.Sub.Templates, "/tmp/foo/templates", "config.sub.templates must be correct")
+		assert.Equal(t, config.Sub.Permanent, "/tmp/foo/permanent", "config.sub.permanent must be correct")
+		assert.Equal(t, config.Sub.Fleet, "/tmp/foo/fleet", "config.sub.fleet must be correct")
 	})
 
 	t.Run("config folders were created", func(t *testing.T) {
