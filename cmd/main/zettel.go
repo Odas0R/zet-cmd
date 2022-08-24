@@ -113,10 +113,10 @@ func (z *Zettel) ReadMetadata() error {
 	z.ID = id
 	z.Title = strings.Replace(z.Lines[0], "# ", "", 1)
 	z.Slug = slug.Make(z.Title)
-	z.FileName = fileName
 
 	foldersNames := strings.Split(z.Path, "/")
 	z.Type = foldersNames[len(foldersNames)-2]
+	z.FileName = fmt.Sprintf("%s.%d.md", z.Slug, z.ID)
 
 	return nil
 }
@@ -247,7 +247,6 @@ func (z *Zettel) Repair() error {
 	}
 
 	// The zettel path is updated because the "z.Title" can change on z.Lines[0]
-	//
 	oldPath := z.Path
 	z.Path = fmt.Sprintf("%s/%s/%s", config.Path, z.Type, z.FileName)
 	if err := os.Rename(oldPath, z.Path); err != nil {
@@ -261,7 +260,7 @@ func (z *Zettel) Repair() error {
 
 	results, ok := Grep(strconv.FormatInt(z.ID, 10))
 	if !ok {
-		return errors.New("error: there are no matches with the given ID")
+		return nil
 	}
 
 	//
@@ -324,14 +323,24 @@ func (z *Zettel) Delete() error {
 		return errors.New("error: invalid zettel")
 	}
 
+	if err := z.ReadMetadata(); err != nil {
+		return err
+	}
+
 	// Remove deleted zettel from history, if exists
 	if err := history.Delete(z); err != nil {
 		return err
 	}
 
-	results, ok := Grep(strconv.FormatInt(z.ID, 10))
+	idStr := strconv.FormatInt(z.ID, 10)
+	results, ok := Grep(idStr)
 	if !ok {
-		return errors.New("error: there are no matches with the given ID")
+		// Delete file
+		if err := os.Remove(z.Path); err != nil {
+			return err
+		}
+
+		return nil
 	}
 
 	//

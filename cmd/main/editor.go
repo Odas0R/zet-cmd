@@ -42,7 +42,7 @@ func Grep(pattern string) ([]*grep.Result, bool) {
 		log.Fatalf("error: failed to grep %v", err)
 	}
 
-	return results, len(results) > 1
+	return results, len(results) >= 1
 }
 
 func Fzf(data string, layout string, prompt string) (string, error) {

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jaswdr/faker"
 	"github.com/odas0r/zet/cmd/assert"
 )
 
@@ -262,39 +263,79 @@ func TestZettel(t *testing.T) {
 		assert.Equal(t, z3.Links[0].Type, "permanent", "z3 link is type permanent")
 	})
 
-	t.Run("can delete zettel", func(t *testing.T) {
+	t.Run("can delete zettel without links", func(t *testing.T) {
+		for i := 0; i < 1000; i++ {
+			zettel := &Zettel{ID: time.Now().UnixNano(), Title: faker.New().Person().Title()}
+			zettel.New()
+			zettel.WriteLine(1,
+				fmt.Sprintf("%s%d",
+					strings.Join(faker.New().Lorem().Sentences(10), "\n"),
+					faker.New().RandomDigit(),
+				))
+		}
+
+		z1 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
+		z1.New()
+
+		err := z1.Delete()
+		assert.Equal(t, err, nil, "delete should not fail")
+
+		ok := z1.IsValid()
+		assert.Equal(t, ok, false, "zettel must be invalid")
+	})
+
+	t.Run("can delete zettel with links", func(t *testing.T) {
 		z1 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
 		z2 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
 		z3 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
-		z4 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
 
 		z1.New()
 		z2.New()
 		z3.New()
-		z4.New()
 
 		z2.Link(z1)
 		z3.Link(z1)
-		z4.Link(z2)
 
 		assert.Equal(t, len(z2.Links), 1, "z2 should have one links")
 		assert.Equal(t, len(z3.Links), 1, "z3 should have one links")
-		assert.Equal(t, len(z4.Links), 1, "z4 should have one links")
 
 		//
-		// Delete
+		// Delete zettel with links
 		//
-		z1.Delete()
+		err := z1.Delete()
+		assert.Equal(t, err, nil, "delete should not fail")
 
 		ok := z1.IsValid()
 		assert.Equal(t, ok, false, "zettel is not valid")
 
 		z2.ReadLinks()
 		z3.ReadLinks()
-		z4.ReadLinks()
 
 		assert.Equal(t, len(z2.Links), 0, "z2 should have no links")
 		assert.Equal(t, len(z3.Links), 0, "z3 should have no links")
-		assert.Equal(t, len(z4.Links), 1, "z4 should have no links")
+	})
+
+	t.Run("can delete zettel with 1000 links", func(t *testing.T) {
+		z1 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
+		z1.New()
+
+		for i := 0; i < 1000; i++ {
+			zettel := &Zettel{ID: time.Now().UnixNano(), Title: faker.New().Person().Title()}
+			zettel.New()
+			zettel.WriteLine(1,
+				fmt.Sprintf("%s%d",
+					strings.Join(faker.New().Lorem().Sentences(10), "\n"),
+					faker.New().RandomDigit(),
+				),
+			)
+
+			zettel.Link(z1)
+		}
+
+		err := z1.Delete()
+		assert.Equal(t, err, nil, "delete should not fail")
+
+		ok := z1.IsValid()
+		assert.Equal(t, ok, false, "zettel must be invalid")
 	})
 }
