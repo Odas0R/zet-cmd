@@ -165,7 +165,7 @@ func main() {
 				Name:  "last",
 				Usage: "",
 				Action: func(c *cli.Context) error {
-					if err := history.Read(); err != nil {
+					if err := history.ReadLines(); err != nil {
 						return err
 					}
 

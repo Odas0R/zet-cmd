@@ -32,7 +32,7 @@ func (h *History) Init(root string, fileName string) error {
 		return err
 	}
 
-	if err := h.Read(); err != nil {
+	if err := h.ReadLines(); err != nil {
 		return err
 	}
 
@@ -120,12 +120,16 @@ func (h *History) Insert(zettel *Zettel) error {
 		return errors.New("error: given zettel was not valid")
 	}
 
-	if err := h.Read(); err != nil {
+	if err := h.ReadLines(); err != nil {
 		return err
 	}
 
 	if len(h.Lines) == 50 {
 		return errors.New("error: history cannot have more than 50 zettels")
+	}
+
+	if err := history.Delete(zettel); err != nil {
+		return err
 	}
 
 	h.Lines = append([]string{zettel.Path}, h.Lines...)
@@ -160,7 +164,7 @@ func (h *History) Delete(zettel *Zettel) error {
 	return nil
 }
 
-func (h *History) Read() error {
+func (h *History) ReadLines() error {
 	lines, err := ReadLines(h.Path)
 	if err != nil {
 		return err

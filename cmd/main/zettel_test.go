@@ -314,28 +314,4 @@ func TestZettel(t *testing.T) {
 		assert.Equal(t, len(z2.Links), 0, "z2 should have no links")
 		assert.Equal(t, len(z3.Links), 0, "z3 should have no links")
 	})
-
-	t.Run("can delete zettel with 1000 links", func(t *testing.T) {
-		z1 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
-		z1.New()
-
-		for i := 0; i < 1000; i++ {
-			zettel := &Zettel{ID: time.Now().UnixNano(), Title: faker.New().Person().Title()}
-			zettel.New()
-			zettel.WriteLine(1,
-				fmt.Sprintf("%s%d",
-					strings.Join(faker.New().Lorem().Sentences(10), "\n"),
-					faker.New().RandomDigit(),
-				),
-			)
-
-			zettel.Link(z1)
-		}
-
-		err := z1.Delete()
-		assert.Equal(t, err, nil, "delete should not fail")
-
-		ok := z1.IsValid()
-		assert.Equal(t, ok, false, "zettel must be invalid")
-	})
 }

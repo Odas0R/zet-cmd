@@ -9,123 +9,97 @@ import (
 
 func TestHistory(t *testing.T) {
 	t.Run("can append zettel into history", func(t *testing.T) {
-		zettel := &Zettel{Title: "Some random title"}
+		zettel := &Zettel{Title: "title", ID: time.Now().UTC().UnixNano()}
+		zettel.New()
 
-		if err := zettel.New(); err != nil {
-			assert.Equal(t, err, nil, "zettel.New should not fail")
-		}
-
-		if err := history.Insert(zettel); err != nil {
-			assert.Equal(t, err, nil, "history.Insert should not fail")
-		}
-
-		if err := history.Read(); err != nil {
-			assert.Equal(t, err, nil, "history.Read should not fail")
-		}
+		history.Insert(zettel)
 
 		assert.Equal(t, history.Lines[0], zettel.Path, "zettel path must be in history file")
+
+		history.Insert(zettel)
+		assert.Equal(t, len(history.Lines), 1, "length of history must be equal to 1")
+		assert.Equal(t, history.Lines[0], zettel.Path, "zettel path must be in history file")
+
+		// Clean-Up
+		history.Clear()
 	})
 
 	t.Run("can append zettel into history (2)", func(t *testing.T) {
-		zettelOne := &Zettel{ID: 123, Title: "Some random title"}
-		zettelTwo := &Zettel{ID: 1234, Title: "Some random title"}
+		z1 := &Zettel{Title: "Some random title", ID: time.Now().UTC().UnixNano()}
+		z2 := &Zettel{Title: "Some random title", ID: time.Now().UTC().UnixNano()}
 
-		if err := zettelOne.New(); err != nil {
-			assert.Equal(t, err, nil, "zettelOne.New should not fail")
-		}
-		if err := zettelTwo.New(); err != nil {
-			assert.Equal(t, err, nil, "zettelTwo.New should not fail")
-		}
+		z1.New()
+		z2.New()
 
-		if err := history.Insert(zettelOne); err != nil {
-			assert.Equal(t, err, nil, "history.Insert should not fail")
-		}
-		if err := history.Insert(zettelTwo); err != nil {
-			assert.Equal(t, err, nil, "history.Insert should not fail")
-		}
+		history.Insert(z1)
+		history.Insert(z2)
 
-		if err := history.Read(); err != nil {
-			assert.Equal(t, err, nil, "history.Read should not fail")
-		}
+		assert.Equal(t, history.Lines[1], z1.Path, "zettelOne path must be in history file")
+		assert.Equal(t, history.Lines[0], z2.Path, "zettelTwo path must be in history file")
 
-		assert.Equal(t, history.Lines[1], zettelOne.Path, "zettelOne path must be in history file")
-		assert.Equal(t, history.Lines[0], zettelTwo.Path, "zettelTwo path must be in history file")
+		history.Insert(z1)
 
-		if err := history.Insert(zettelOne); err != nil {
-			assert.Equal(t, err, nil, "history.Insert should not fail")
-		}
-		if err := history.Read(); err != nil {
-			assert.Equal(t, err, nil, "history.Read should not fail")
-		}
+		assert.Equal(t, len(history.Lines), 2, "zettelTwo path must be in history file")
+		assert.Equal(t, history.Lines[1], z2.Path, "zettelTwo path must be in history file")
+		assert.Equal(t, history.Lines[0], z1.Path, "zettelOne path must be in history file")
 
-		assert.Equal(t, history.Lines[1], zettelTwo.Path, "zettelTwo path must be in history file")
-		assert.Equal(t, history.Lines[0], zettelOne.Path, "zettelOne path must be in history file")
+		// Clean-Up
+		history.Clear()
 	})
 
 	t.Run("can delete zettel from history", func(t *testing.T) {
-		zettel := &Zettel{Path: "/tmp/foo/fleet/some-random-title.1234.md"}
+		z1 := &Zettel{Title: "Some random title", ID: time.Now().UTC().UnixNano()}
+		z2 := &Zettel{Title: "Some random title", ID: time.Now().UTC().UnixNano()}
+		z3 := &Zettel{Title: "Some random title", ID: time.Now().UTC().UnixNano()}
 
-		if err := zettel.Read(); err != nil {
-			assert.Equal(t, err, nil, "zettel.Read should not fail")
-		}
+		z1.New()
+		z2.New()
+		z3.New()
 
-		if err := history.Delete(zettel); err != nil {
-			assert.Equal(t, err, nil, "history.Delete should not fail")
-		}
+		history.Insert(z1)
+		history.Insert(z2)
+		history.Insert(z3)
 
-		if err := history.Read(); err != nil {
-			assert.Equal(t, err, nil, "history.Read should not fail")
-		}
+		history.Delete(z2)
 
 		for _, line := range history.Lines {
-			if line == zettel.Path {
+			if line == z2.Path {
+				t.Errorf("zettel was not removed from history")
+			}
+		}
+
+		lines, _ := ReadLines(history.Path)
+
+		for _, line := range lines {
+			if line == z2.Path {
 				t.Errorf("zettel was not removed from history")
 			}
 		}
 	})
 
 	t.Run("history size must be of 50 zettels", func(t *testing.T) {
-		// update history lines
-		err := history.Read()
-		assert.Equal(t, err, nil, "history.Read should not fail")
+		history.Clear()
 
-		maxZettels := 50 - len(history.Lines)
-
+		maxZettels := 50
 		for i := 0; i < maxZettels; i++ {
-			id := time.Now().UTC().UnixNano()
-
-			zettel := &Zettel{Title: "title", ID: id}
-
-			if err := zettel.New(); err != nil {
-				assert.Equal(t, err, nil, "zettel.New should not fail")
-			}
-
-			// add to history
-			if err := history.Insert(zettel); err != nil {
-				assert.Equal(t, err, nil, "history.Insert should not fail")
-			}
+			zettel := &Zettel{Title: "title", ID: time.Now().UTC().UnixNano()}
+			zettel.New()
+			history.Insert(zettel)
 		}
 
-		id := time.Now().UTC().UnixNano()
-		zettel := &Zettel{Title: "title", ID: id}
+		zettel := &Zettel{Title: "title", ID: time.Now().UTC().UnixNano()}
+		zettel.New()
 
-		if err := zettel.New(); err != nil {
-			assert.Equal(t, err, nil, "zettel.New should not fail")
-		}
-
-		err = history.Insert(zettel)
+		err := history.Insert(zettel)
 		assert.Equal(t, err.Error(), "error: history cannot have more than 50 zettels", "history.Insert should fail")
 	})
 
 	t.Run("can clear history", func(t *testing.T) {
-		if err := history.Clear(); err != nil {
-			assert.Equal(t, err, nil, "history.Clear should not fail")
-		}
+		history.Clear()
 
-		if err := history.Read(); err != nil {
-			assert.Equal(t, err, nil, "history.Read should not fail")
-		}
+		lines, _ := ReadLines(history.Path)
 
+		assert.Equal(t, len(lines), 0, "history should be empty")
 		assert.Equal(t, len(history.Lines), 0, "history should be empty")
 	})
 }
