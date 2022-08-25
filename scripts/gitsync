@@ -9,6 +9,8 @@ if [[ ! -d "$ZET_PATH" ]]; then
   exit 1
 fi
 
+cd "$ZET_PATH"
+
 _sync() {
   if [[ ! -S "$NVIM_SOCKET" ]]; then
     #
