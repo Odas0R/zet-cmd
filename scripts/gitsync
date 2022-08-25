@@ -9,35 +9,40 @@ if [[ ! -d "$ZET_PATH" ]]; then
   exit 1
 fi
 
-if [[ ! -S "$NVIM_SOCKET" ]]; then
-  #
-  # If there's no nvim socket
-  #
-  if ! git rev-parse HEAD >/dev/null 2>&1; then
-    exit 1
-  fi
-  if [[ -n "$(git status --porcelain)" ]]; then
-    git add .
-    git commit -m "Gitsync: $(date +%Y-%m-%d)" -q
-    git pull -q
-    git push -q
-  fi
-else
-  #
-  # If there's a nvim socket
-  #
-  if ! git rev-parse HEAD "$ZET_PATH" >/dev/null 2>&1; then
-    nvim --server "$NVIM_SOCKET" --remote-send ":echoerr 'error: the given path isn't a github repo'<CR>"
-    exit 1
-  fi
-  if [[ -n "$(git status --porcelain)" ]]; then
-    nvim --server "$NVIM_SOCKET" --remote-send ":echom Saving current changes... 🗘'<CR>"
+_sync() {
+  if [[ ! -S "$NVIM_SOCKET" ]]; then
+    #
+    # If there's no nvim socket
+    #
+    if ! git rev-parse HEAD >/dev/null 2>&1; then
+      exit 1
+    fi
+    if [[ -n "$(git status --porcelain)" ]]; then
+      git add .
+      git commit -m "Gitsync: $(date +%Y-%m-%d)" -q
+      git pull -q
+      git push -q
+    fi
+  else
+    #
+    # If there's a nvim socket
+    #
+    if ! git rev-parse HEAD "$ZET_PATH" >/dev/null 2>&1; then
+      nvim --server "$NVIM_SOCKET" --remote-send ":echoerr 'error: the given path isn't a github repo'<CR>"
+      exit 1
+    fi
+    if [[ -n "$(git status --porcelain)" ]]; then
+      nvim --server "$NVIM_SOCKET" --remote-send ":echom Saving current changes... 🗘'<CR>"
 
-    git add .
-    git commit -m "Gitsync: $(date +%Y-%m-%d)" -q
-    git pull -q
-    git push -q
+      git add .
+      git commit -m "Gitsync: $(date +%Y-%m-%d)" -q
+      git pull -q
+      git push -q
 
-    nvim --server "$NVIM_SOCKET" --remote-send ":echom 'Added current changes successfully ✔️'<CR>"
+      nvim --server "$NVIM_SOCKET" --remote-send ":echom 'Added current changes successfully ✔️'<CR>"
+    fi
   fi
-fi
+}
+
+# run the command on the background
+(_sync &) &>/dev/null

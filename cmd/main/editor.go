@@ -97,17 +97,9 @@ func SaveOnBackground() error {
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
 
-	output, err := cmd.Output()
-	if err != nil {
-		outputStr := strings.TrimSpace(bytes.NewBuffer(output).String())
-		fmt.Printf("outputStr: %v\n", outputStr)
-		fmt.Print(err.Error())
+	if err := cmd.Run(); err != nil {
 		return err
 	}
-
-	outputStr := strings.TrimSpace(bytes.NewBuffer(output).String())
-
-	fmt.Printf("outputStr: %v\n", outputStr)
 
 	return nil
 }
