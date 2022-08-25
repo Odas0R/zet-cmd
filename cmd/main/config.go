@@ -22,7 +22,7 @@ type Scripts struct {
 	FindLinks string
 	Query     string
 	Clear     string
-	Ripgrep   string
+  Gitsync string
 }
 
 type Config struct {
@@ -54,7 +54,7 @@ func (c *Config) Init(configPath string) error {
 	c.Scripts.Open = path.Join(zetExecutablePath, "scripts/open")
 	c.Scripts.Clear = path.Join(zetExecutablePath, "scripts/clear")
 	c.Scripts.FindLinks = path.Join(zetExecutablePath, "scripts/find-links")
-	c.Scripts.Ripgrep = path.Join(zetExecutablePath, "scripts/ripgrep")
+	c.Scripts.Gitsync = path.Join(zetExecutablePath, "scripts/gitsync")
 
 	if err := c.setupLayout(); err != nil {
 		return err

@@ -14,6 +14,14 @@ func TestConfig(t *testing.T) {
 		assert.Equal(t, config.Sub.Templates, "/tmp/foo/templates", "config.sub.templates must be correct")
 		assert.Equal(t, config.Sub.Permanent, "/tmp/foo/permanent", "config.sub.permanent must be correct")
 		assert.Equal(t, config.Sub.Fleet, "/tmp/foo/fleet", "config.sub.fleet must be correct")
+
+		assert.Equal(t, config.Scripts.Clear, "/home/odas0r/github.com/odas0r/zet-cmd/scripts/clear", "config.sub.fleet must be correct")
+		assert.Equal(t, config.Scripts.Gitsync, "/home/odas0r/github.com/odas0r/zet-cmd/scripts/gitsync", "config.sub.fleet must be correct")
+		assert.Equal(t, config.Scripts.FindLinks, "/home/odas0r/github.com/odas0r/zet-cmd/scripts/find-links", "config.sub.fleet must be correct")
+		assert.Equal(t, config.Scripts.Open, "/home/odas0r/github.com/odas0r/zet-cmd/scripts/open", "config.sub.fleet must be correct")
+		assert.Equal(t, config.Scripts.Fzf, "/home/odas0r/github.com/odas0r/zet-cmd/scripts/fzf", "config.sub.fleet must be correct")
+		assert.Equal(t, config.Scripts.FzfMulti, "/home/odas0r/github.com/odas0r/zet-cmd/scripts/fzf-multi", "config.sub.fleet must be correct")
+		assert.Equal(t, config.Scripts.Query, "/home/odas0r/github.com/odas0r/zet-cmd/scripts/query", "config.sub.fleet must be correct")
 	})
 
 	t.Run("config folders were created", func(t *testing.T) {

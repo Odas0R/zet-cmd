@@ -83,6 +83,7 @@ func TestHistory(t *testing.T) {
 		maxZettels := 50
 		for i := 0; i < maxZettels; i++ {
 			zettel := &Zettel{Title: "title", ID: time.Now().UTC().UnixNano()}
+
 			zettel.New()
 			history.Insert(zettel)
 		}

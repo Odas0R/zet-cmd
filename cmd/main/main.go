@@ -84,7 +84,7 @@ func main() {
 						}
 					}
 
-          // Open the zettel that the links were written
+					// Open the zettel that the links were written
 					if err := zettel.Open(0); err != nil {
 						return err
 					}
@@ -292,6 +292,10 @@ func main() {
 					zettel := &Zettel{Path: path}
 
 					if err := zettel.Repair(); err != nil {
+						return err
+					}
+
+					if err := SaveOnBackground(); err != nil {
 						return err
 					}
 

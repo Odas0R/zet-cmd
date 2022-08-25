@@ -90,6 +90,28 @@ func Edit(path string, lineNr int) error {
 	return nil
 }
 
+// SaveOnBackground saves the contents of the zettelkasten into github on the
+// background
+func SaveOnBackground() error {
+	cmd := exec.Command("/bin/bash", config.Scripts.Gitsync, config.Path)
+	cmd.Stdin = os.Stdin
+	cmd.Stderr = os.Stderr
+
+	output, err := cmd.Output()
+	if err != nil {
+		outputStr := strings.TrimSpace(bytes.NewBuffer(output).String())
+		fmt.Printf("outputStr: %v\n", outputStr)
+		fmt.Print(err.Error())
+		return err
+	}
+
+	outputStr := strings.TrimSpace(bytes.NewBuffer(output).String())
+
+	fmt.Printf("outputStr: %v\n", outputStr)
+
+	return nil
+}
+
 func DeleteBuffer() error {
 	cmd := exec.Command("/bin/bash", config.Scripts.Clear)
 	cmd.Stdin = os.Stdin
