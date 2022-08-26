@@ -19,6 +19,7 @@ _sync() {
     if ! git rev-parse HEAD >/dev/null 2>&1; then
       exit 1
     fi
+
     if [[ -n "$(git status --porcelain)" ]]; then
       git add .
       git commit -m "Gitsync: $(date +%Y-%m-%d)" -q
@@ -33,8 +34,8 @@ _sync() {
       nvim --server "$NVIM_SOCKET" --remote-send ":echoerr 'error: the given path isn't a github repo'<CR>"
       exit 1
     fi
+
     if [[ -n "$(git status --porcelain)" ]]; then
-      nvim --server "$NVIM_SOCKET" --remote-send ":echom Saving current changes... 🗘'<CR>"
 
       git add .
       git commit -m "Gitsync: $(date +%Y-%m-%d)" -q
