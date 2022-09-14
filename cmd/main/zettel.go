@@ -231,36 +231,41 @@ func (z *Zettel) Link(zettel *Zettel) error {
 	return nil
 }
 
-func (z *Zettel) Repair() error {
+func (z *Zettel) Repair() (error, bool) {
 	if !z.IsValid() {
-		return errors.New("error: invalid zettel")
+		return errors.New("error: invalid zettel"), false
 	}
 
 	// Zemove the old zettel from history
 	if err := history.Delete(z); err != nil {
-		return err
+		return err, false
 	}
 
 	// Get new metadata
 	if err := z.ReadMetadata(); err != nil {
-		return err
+		return err, false
+	}
+
+	fileNameFromPath := filepath.Base(z.Path)
+	if fileNameFromPath == z.FileName {
+		return nil, false
 	}
 
 	// The zettel path is updated because the "z.Title" can change on z.Lines[0]
 	oldPath := z.Path
 	z.Path = fmt.Sprintf("%s/%s/%s", config.Path, z.Type, z.FileName)
 	if err := os.Rename(oldPath, z.Path); err != nil {
-		return err
+		return err, false
 	}
 
 	// Fix the history
 	if err := history.Insert(z); err != nil {
-		return err
+		return err, false
 	}
 
 	results, ok := Grep(strconv.FormatInt(z.ID, 10))
 	if !ok {
-		return nil
+		return nil, false
 	}
 
 	//
@@ -270,22 +275,22 @@ func (z *Zettel) Repair() error {
 		zettel := &Zettel{Path: result.Path}
 		ok := zettel.IsValid()
 		if !ok {
-			return errors.New("error: file path on link is not a valid zettel")
+			return errors.New("error: file path on link is not a valid zettel"), false
 		}
 
 		if err := zettel.ReadLines(); err != nil {
-			return err
+			return err, false
 		}
 
 		index := result.LineNr - 1
 		zettel.Lines[index] = fmt.Sprintf("- [%s](%s)", z.Title, z.Path)
 
 		if err := zettel.Write(); err != nil {
-			return err
+			return err, false
 		}
 	}
 
-	return nil
+	return nil, true
 }
 
 func (z *Zettel) ReadLines() error {
@@ -410,7 +415,7 @@ func (z *Zettel) Permanent() error {
 	}
 
 	// fix all broken links
-	if err := z.Repair(); err != nil {
+	if err, _ := z.Repair(); err != nil {
 		return err
 	}
 

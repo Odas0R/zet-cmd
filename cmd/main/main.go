@@ -291,7 +291,8 @@ func main() {
 					path := strings.Join(c.Args().Slice(), "")
 					zettel := &Zettel{Path: path}
 
-					if err := zettel.Repair(); err != nil {
+					err, ok := zettel.Repair()
+					if err != nil {
 						return err
 					}
 
@@ -299,8 +300,11 @@ func main() {
 						return err
 					}
 
-					if err := zettel.Open(0); err != nil {
-						return err
+					// only "re-open" the zettel if the zettel title has been modified
+					if ok {
+						if err := zettel.Open(0); err != nil {
+							return err
+						}
 					}
 
 					return nil

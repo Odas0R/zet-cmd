@@ -17,7 +17,7 @@ _sync() {
     # If there's no nvim socket
     #
     if ! git rev-parse HEAD >/dev/null 2>&1; then
-      exit 1
+      return 1
     fi
 
     if [[ -n "$(git status --porcelain)" ]]; then
@@ -31,18 +31,20 @@ _sync() {
     # If there's a nvim socket
     #
     if ! git rev-parse HEAD "$ZET_PATH" >/dev/null 2>&1; then
-      nvim --server "$NVIM_SOCKET" --remote-send ":echoerr 'error: the given path isn't a github repo'<CR>"
-      exit 1
+      nvim --server "$NVIM_SOCKET" --remote-send ":echoerr ''<CR>"
+      nvim --server "$NVIM_SOCKET" --remote-send ':lua vim.api.nvim_echo({{"Gitsync: the given path is not a github repo.", "Error"}}, true, {})<CR>'
+      return 1
     fi
 
     if [[ -n "$(git status --porcelain)" ]]; then
+      nvim --server "$NVIM_SOCKET" --remote-send ':lua vim.api.nvim_echo({{"Gitsync: saving changes to github...", "ModeMsg"}}, true, {})<CR>'
 
       git add .
       git commit -m "Gitsync: $(date +%Y-%m-%d)" -q
       git pull -q
       git push -q
 
-      nvim --server "$NVIM_SOCKET" --remote-send ":echom 'Added current changes successfully ✔️'<CR>"
+      nvim --server "$NVIM_SOCKET" --remote-send ':lua vim.api.nvim_echo({{"Gitsync: pushed current changes to github successfully ✔️", "Function"}}, true, {})<CR>'
     fi
   fi
 }
