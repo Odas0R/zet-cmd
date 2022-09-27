@@ -5,7 +5,7 @@ set -e
 declare ZET_PATH="$1"
 
 if [[ ! -d "$ZET_PATH" ]]; then
-  nvim --server "$NVIM_SOCKET" --remote-send ':lua vim.notify("$ZET_PATH is not a valid directory", "error", {title= "Gitsync"})<CR>'
+  nvim --server "$NVIM_SOCKET" --remote-send '<ESC>:lua vim.notify("$ZET_PATH is not a valid directory", "error", {title= "Gitsync"})<CR>'
   exit 1
 fi
 
@@ -31,19 +31,19 @@ _sync() {
     # If there's a nvim socket
     #
     if ! git rev-parse HEAD "$ZET_PATH" >/dev/null 2>&1; then
-      nvim --server "$NVIM_SOCKET" --remote-send ':lua vim.notify("The given path is not a github repo", "error", {title= "Gitsync"})<CR>'
+      nvim --server "$NVIM_SOCKET" --remote-send '<ESC>:lua vim.notify("The given path is not a github repo", "error", {title= "Gitsync"})<CR>'
       return 1
     fi
 
     if [[ -n "$(git status --porcelain)" ]]; then
-      nvim --server "$NVIM_SOCKET" --remote-send ':lua vim.notify("Saving changes to github...", "warn", {title = "Gitsync"})<CR>'
+      nvim --server "$NVIM_SOCKET" --remote-send '<ESC>:lua vim.notify("Saving changes to github...", "warn", {title = "Gitsync"})<CR>'
 
       git add .
       git commit -m "Gitsync: $(date +%Y-%m-%d)" -q
       git pull -q
       git push -q
 
-      nvim --server "$NVIM_SOCKET" --remote-send ':lua vim.notify("Succesfully pushed changes on github...", "info", {title= "Gitsync"})<CR>'
+      nvim --server "$NVIM_SOCKET" --remote-send '<ESC>:lua vim.notify("Succesfully pushed changes on github...", "info", {title= "Gitsync"})<CR>'
     fi
   fi
 }
