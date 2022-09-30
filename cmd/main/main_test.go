@@ -9,6 +9,11 @@ import (
 const TEST_DIR string = "/tmp/foo"
 
 func TestMain(m *testing.M) {
+	// cleanup
+	if err := os.RemoveAll("/tmp/foo"); err != nil {
+		log.Fatalf("error: failed to cleanup %V", err)
+	}
+
 	// initialize config
 	if err := config.Init(TEST_DIR); err != nil {
 		log.Fatalf("error: failed to initialize config %V", err)

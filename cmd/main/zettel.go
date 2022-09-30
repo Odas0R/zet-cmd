@@ -130,27 +130,47 @@ func (z *Zettel) ReadLinks() error {
 		return err
 	}
 
-	linkSectionIndex := lo.IndexOf(z.Lines, "## Links")
-	if linkSectionIndex == -1 {
-		return errors.New("error: there is no ## Links section on given zettel")
+	zettels, err := z.getLinks()
+	if err != nil {
+		return err
 	}
 
-	links := []*Zettel{}
+	z.Links = zettels
+
+	return nil
+}
+
+func (z *Zettel) getLinks() ([]*Zettel, error) {
+	if err := z.ReadLines(); err != nil {
+		return nil, err
+	}
+
+	_, linksIndex, ok := lo.FindIndexOf(z.Lines, func(line string) bool {
+		return strings.Contains(line, "Links")
+	})
+
+	if !ok {
+		return nil, fmt.Errorf("error: given zettel has no '## Links' section")
+	}
+
+	if linksIndex == -1 {
+		return nil, errors.New("error: there is no ## Links section on given zettel")
+	}
+
+	zettels := []*Zettel{}
 	for index, line := range z.Lines {
-		if index > linkSectionIndex {
+		if index > linksIndex {
 			path, ok := ValidateLinkPath(line)
 			if ok {
 				zet := &Zettel{Path: path}
 				if zet.IsValid() {
-					links = append(links, zet)
+
+					zettels = append(zettels, zet)
 				}
 			}
 		}
 	}
-
-	z.Links = links
-
-	return nil
+	return zettels, nil
 }
 
 func (z *Zettel) Link(zettel *Zettel) error {
@@ -169,51 +189,37 @@ func (z *Zettel) Link(zettel *Zettel) error {
 		return err
 	}
 
-	// check if link already exists
-	linkToInsert := fmt.Sprintf("- [%s](%s)", zettel.Title, zettel.Path)
-	hasLink := lo.Contains(z.Lines, linkToInsert)
-
-	if hasLink {
-		return errors.New("error: cannot have duplicated links")
-	}
-
 	if z.Path == zettel.Path {
 		return errors.New("error: cannot link the same file")
 	}
 
-	// append on the file
-
-	links := []string{}
-	linkSectionIndex := lo.IndexOf(z.Lines, "## Links")
-
-	if linkSectionIndex == -1 {
-		return errors.New("error: there is no '## Links' section on given zettel")
+	// check if link already exists
+	linkToInsert := fmt.Sprintf("- [%s](%s)", zettel.Title, zettel.Path)
+	if lo.Contains(z.Lines, linkToInsert) {
+		return errors.New("error: cannot have duplicated links")
 	}
 
-	for index, line := range z.Lines {
-		if index > linkSectionIndex {
-			path, ok := ValidateLinkPath(line)
-			if ok {
-				zet := &Zettel{Path: path}
-				if zet.IsValid() {
-					if err := zet.ReadMetadata(); err != nil {
-						return err
-					}
+	_, linksIndex, _ := lo.FindIndexOf(z.Lines, func(line string) bool {
+		return strings.Contains(line, "Links")
+	})
 
-					link := fmt.Sprintf("- [%s](%s)", zet.Title, zet.Path)
-					links = append(links, link)
-				}
-			}
-		}
+	links, err := z.getLinks()
+	if err != nil {
+		return err
 	}
+
+	linksStringArr := lo.Map(links, func(z *Zettel, _ int) string {
+		z.ReadMetadata()
+		return fmt.Sprintf("- [%s](%s)", z.Title, z.Path)
+	})
 
 	//
 	// Format links and insert the new link
 	//
 
-	lines := z.Lines[:linkSectionIndex+1]
+	lines := z.Lines[:linksIndex+1]
 	lines = append(lines, "") // add a <new-line>
-	lines = append(lines, links...)
+	lines = append(lines, linksStringArr...)
 	lines = append(lines, linkToInsert) // add link to the end of the file
 	lines = append(lines, "")           // add a <new-line>
 	lines = append(lines, "")           // add a <new-line>
@@ -246,16 +252,13 @@ func (z *Zettel) Repair() (error, bool) {
 		return err, false
 	}
 
-	fileNameFromPath := filepath.Base(z.Path)
-	if fileNameFromPath == z.FileName {
-		return nil, false
-	}
-
-	// The zettel path is updated because the "z.Title" can change on z.Lines[0]
-	oldPath := z.Path
-	z.Path = fmt.Sprintf("%s/%s/%s", config.Path, z.Type, z.FileName)
-	if err := os.Rename(oldPath, z.Path); err != nil {
-		return err, false
+	// Title was changed, update the path
+	if filepath.Base(z.Path) != z.FileName {
+		oldPath := z.Path
+		z.Path = fmt.Sprintf("%s/%s/%s", config.Path, z.Type, z.FileName)
+		if err := os.Rename(oldPath, z.Path); err != nil {
+			return err, false
+		}
 	}
 
 	// Fix the history
@@ -407,7 +410,7 @@ func (z *Zettel) Permanent() error {
 		return nil
 	}
 
-	// Update path
+	// Move zettel into the the /permanent directory
 	oldPath := z.Path
 	z.Path = fmt.Sprintf("%s/%s", config.Sub.Permanent, z.FileName)
 	if err := os.Rename(oldPath, z.Path); err != nil {
@@ -435,7 +438,7 @@ func (z *Zettel) Open(lineNr int) error {
 }
 
 func (z *Zettel) IsValid() bool {
-	return strings.HasPrefix(z.Path, config.Path) && FileExists(z.Path)
+	return strings.Contains(z.Path, config.Path) && FileExists(z.Path)
 }
 
 // Validates if a string is formatted accordingly, and if the string is a valid

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -16,16 +15,14 @@ func TestEditor(t *testing.T) {
 		z3 := &Zettel{ID: 12345, Title: "Lorem ipsum dolor sit amet,"}
 		z4 := &Zettel{ID: time.Now().UnixNano(), Title: "Lorem ipsum dolor sit amet, consetetur"}
 
-		z1.New()
-		z2.New()
-		z3.New()
-		z4.New()
+		ZettelNew(t, z1)
+		ZettelNew(t, z2)
+		ZettelNew(t, z3)
+		ZettelNew(t, z4)
 
-		fmt.Printf("z4.Lines: %v\n", z4.Lines)
-
-		assert.Equal(t, z1.Link(z3), nil, "linking should not fail")
-		assert.Equal(t, z2.Link(z3), nil, "linking should not fail")
-		assert.Equal(t, z3.Link(z3), nil, "linking should not fail")
+		ZettelLink(t, z1, z3)
+		ZettelLink(t, z2, z3)
+		ZettelLink(t, z4, z3)
 
 		results, ok := Grep("12345")
 		assert.Equal(t, ok, true, "grep returns values")

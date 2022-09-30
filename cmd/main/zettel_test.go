@@ -31,9 +31,9 @@ func TestZettel(t *testing.T) {
 		z2 := &Zettel{ID: 2, Title: "Title example"}
 		z3 := &Zettel{ID: 3, Title: "Title example"}
 
-		z1.New()
-		z2.New()
-		z3.New()
+		ZettelNew(t, z1)
+		ZettelNew(t, z2)
+		ZettelNew(t, z3)
 
 		paths := []string{
 			"/tmp/foo/fleet/title-example.1.md",
@@ -49,11 +49,10 @@ func TestZettel(t *testing.T) {
 
 	t.Run("can read a zettel on a given path", func(t *testing.T) {
 		zettel := &Zettel{ID: 999, Title: "Title Example"}
-		zettel.New()
+		ZettelNew(t, zettel)
 
 		zettel = &Zettel{Path: fmt.Sprintf("%s/%s", config.Sub.Fleet, "title-example.999.md")}
-
-		zettel.Read()
+		ZettelRead(t, zettel)
 
 		assert.Equal(t, zettel.ID, int64(999), "zettel.ID should be correct")
 		assert.Equal(t, zettel.Type, "fleet", "zettel.Type should be correct")
@@ -65,25 +64,23 @@ func TestZettel(t *testing.T) {
 	t.Run("can validate a link", func(t *testing.T) {
 		z1 := &Zettel{ID: time.Now().UnixNano(), Title: "Title Example"}
 		z2 := &Zettel{ID: time.Now().UnixNano(), Title: "Title Example"}
+		z3 := &Zettel{ID: 997, Title: "Title Example"}
 
-		z1.New()
-		z2.New()
+		ZettelNew(t, z1)
+		ZettelNew(t, z2)
+		ZettelNew(t, z3)
 
-		//
-		// Validating links
-		//
+		validLinks := []string{
+			fmt.Sprintf("- [%s](%s)", z1.Title, z1.Path),
+			fmt.Sprintf("- [%s](%s)", z2.Title, z2.Path),
+			"- [Title Example](/tmp/foo/fleet/title-example.997.md)",
+		}
 
-		link := fmt.Sprintf("- [%s](%s)", z1.Title, z1.Path)
-
-		path, ok := ValidateLinkPath(link)
-		assert.Equal(t, path, z1.Path, "ValidateLink recieved the correct zettel")
-		assert.Equal(t, ok, true, "ValidateLink should be valid")
-
-		link = fmt.Sprintf("- [%s](%s)", z2.Title, z2.Path)
-
-		path, ok = ValidateLinkPath(link)
-		assert.Equal(t, path, z2.Path, "link is of a valid zettel")
-		assert.Equal(t, ok, true, "link should be valid")
+		for index, link := range validLinks {
+			path, ok := ValidateLinkPath(link)
+			assert.Equal(t, strings.Contains(validLinks[index], path), true, "path should not be empty")
+			assert.Equal(t, ok, true, "link should be valid")
+		}
 
 		invalidLinks := []string{
 			fmt.Sprintf("- [%s](%s)", z2.Title, "/random/path"),
@@ -94,7 +91,7 @@ func TestZettel(t *testing.T) {
 		}
 
 		for _, link := range invalidLinks {
-			path, ok = ValidateLinkPath(link)
+			path, ok := ValidateLinkPath(link)
 			assert.Equal(t, path, "", "link path should be empty")
 			assert.Equal(t, ok, false, "link should be invalid")
 		}
@@ -105,14 +102,14 @@ func TestZettel(t *testing.T) {
 		z2 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
 		z3 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
 
-		z1.New()
-		z2.New()
-		z3.New()
+		ZettelNew(t, z1)
+		ZettelNew(t, z2)
+		ZettelNew(t, z3)
 
 		//
 		// Link 1: z1 --> z2
 		//
-		z1.Link(z2)
+		ZettelLink(t, z1, z2)
 
 		expectedLines := []string{
 			"# Title",
@@ -131,7 +128,7 @@ func TestZettel(t *testing.T) {
 		//
 		// Link 2: z1 --> z3
 		//
-		z1.Link(z3)
+		ZettelLink(t, z1, z3)
 
 		expectedLines = []string{
 			"# Title",
@@ -150,7 +147,7 @@ func TestZettel(t *testing.T) {
 		assert.Equal(t, z1.Links[0].Path, z2.Path, "z2 is linked to z1")
 		assert.Equal(t, z1.Links[1].Path, z3.Path, "z3 is linked to z1")
 
-		z1.ReadLinks()
+		assert.Equal(t, z1.ReadLinks(), nil, "should be able to read zettel links")
 
 		assert.Equal(t, strings.Join(z1.Lines, "\n"), strings.Join(expectedLines, "\n"), "file should have correct format")
 		assert.Equal(t, len(z1.Links), 2, "z1 has 2 links")
@@ -160,7 +157,7 @@ func TestZettel(t *testing.T) {
 		//
 		// Link 2: z3 --> z2
 		//
-		z3.Link(z2)
+		ZettelLink(t, z3, z2)
 
 		expectedLines = []string{
 			"# Title",
@@ -182,13 +179,14 @@ func TestZettel(t *testing.T) {
 		z1 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
 		z2 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
 
-		z1.New()
-		z2.New()
+		ZettelNew(t, z1)
+		ZettelNew(t, z2)
 
 		err := z1.Link(z1)
 		assert.Equal(t, err.Error(), "error: cannot link the same file", "zettel cannot link himself")
 
-		z1.Link(z2)
+		ZettelLink(t, z1, z2)
+
 		err = z1.Link(z2)
 		assert.Equal(t, err.Error(), "error: cannot have duplicated links", "zettel cannot have duplicated links")
 	})
@@ -198,16 +196,19 @@ func TestZettel(t *testing.T) {
 		z2 := &Zettel{ID: time.Now().UnixNano(), Title: "Title Example"}
 		z3 := &Zettel{ID: time.Now().UnixNano(), Title: "Title Example"}
 
-		z1.New()
-		z2.New()
-		z3.New()
+		ZettelNew(t, z1)
+		ZettelNew(t, z2)
+		ZettelNew(t, z3)
 
-		z3.Link(z1)
-		z2.Link(z1)
+		ZettelLink(t, z3, z1)
+		ZettelLink(t, z2, z1)
 
 		// repair the zettel 1
-		z1.WriteLine(0, "# foo bar")
-		z1.Repair()
+		assert.Equal(t, z1.WriteLine(0, "# foo bar"), nil, "should be able to write line on index 0")
+
+		err, ok := z1.Repair()
+		assert.Equal(t, err, nil, "should be able to write line on index 0")
+		assert.Equal(t, ok, true, "the filepath of the zettel was changed")
 
 		assert.Equal(t, z1.Title, "foo bar", "zettelOne.Title should be correct")
 		assert.Equal(t, z1.Lines[0], "# foo bar", "zettelOne.Lines[0] should be the new title")
@@ -216,8 +217,8 @@ func TestZettel(t *testing.T) {
 		assert.Equal(t, z1.FileName, "foo-bar.998.md", "zettelOne.FileName should be correct")
 		assert.Equal(t, z1.Path, "/tmp/foo/fleet/foo-bar.998.md", "zettelOne.Path should be correct")
 
-		z2.ReadLines()
-		z3.ReadLines()
+		assert.Equal(t, z2.ReadLines(), nil, "should be able to read lines")
+		assert.Equal(t, z3.ReadLines(), nil, "should be able to read lines")
 
 		expectedLines := []string{
 			"# Title Example",
@@ -238,20 +239,26 @@ func TestZettel(t *testing.T) {
 		z2 := &Zettel{ID: time.Now().UnixNano(), Title: "Title Example"}
 		z3 := &Zettel{ID: time.Now().UnixNano(), Title: "Title Example"}
 
-		z1.New()
-		z2.New()
-		z3.New()
+		ZettelNew(t, z1)
+		ZettelNew(t, z2)
+		ZettelNew(t, z3)
 
-		z2.Link(z1)
-		z3.Link(z1)
+		ZettelLink(t, z2, z1)
+		ZettelLink(t, z3, z1)
 
-		z1.Permanent()
+		assert.Equal(t, z1.Permanent(), nil, "zettel should be able to merge into permanent")
 
 		assert.Equal(t, z1.Type, "permanent", "z1.Type should be correct")
 		assert.Equal(t, z1.Path, fmt.Sprintf("%s/title-example.997.md", config.Sub.Permanent), "z1.Path should be correct")
 
-		z2.Read()
-		z3.Read()
+		ZettelRead(t, z2)
+		ZettelRead(t, z3)
+
+    assert.Equal(t, strings.Contains(strings.Join(z2.Lines, " "), z1.Path), true, "z2 should have the permanet z1 path")
+    assert.Equal(t, strings.Contains(strings.Join(z3.Lines, " "), z1.Path), true, "z3 should have the permanet z1 path")
+
+		assert.Equal(t, len(z2.Links), 1, "z2 zettel should have one link")
+		assert.Equal(t, len(z3.Links), 1, "z2 zettel should have one link")
 
 		z2.Links[0].ReadMetadata()
 		z3.Links[0].ReadMetadata()
@@ -266,12 +273,13 @@ func TestZettel(t *testing.T) {
 	t.Run("can delete zettel without links", func(t *testing.T) {
 		for i := 0; i < 1000; i++ {
 			zettel := &Zettel{ID: time.Now().UnixNano(), Title: faker.New().Person().Title()}
-			zettel.New()
-			zettel.WriteLine(1,
+			ZettelNew(t, zettel)
+			err := zettel.WriteLine(1,
 				fmt.Sprintf("%s%d",
 					strings.Join(faker.New().Lorem().Sentences(10), "\n"),
 					faker.New().RandomDigit(),
 				))
+			assert.Equal(t, err, nil, "should be able to write a line on index 1")
 		}
 
 		z1 := &Zettel{ID: time.Now().UnixNano(), Title: "Title"}
@@ -314,4 +322,22 @@ func TestZettel(t *testing.T) {
 		assert.Equal(t, len(z2.Links), 0, "z2 should have no links")
 		assert.Equal(t, len(z3.Links), 0, "z3 should have no links")
 	})
+}
+
+func ZettelNew(t *testing.T, z *Zettel) {
+	assert.Equal(t, z.New(), nil, "should be able to create zettel")
+}
+
+func ZettelRead(t *testing.T, z *Zettel) {
+	assert.Equal(t, z.Read(), nil, "should be able to read zettel")
+}
+
+func ZettelLink(t *testing.T, z *Zettel, z1 *Zettel) {
+	assert.Equal(t, z.Link(z1), nil, "should be able to link zettels")
+}
+
+func LogFile(t *testing.T, z *Zettel) {
+	t.Log(
+		strings.Join(z.Lines, "\n"),
+	)
 }
