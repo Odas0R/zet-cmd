@@ -31,7 +31,7 @@ func main() {
 		Name:    "zet",
 		Version: "v0.1",
 		Authors: []*cli.Author{
-			&cli.Author{
+			{
 				Name:  "odas0r",
 				Email: "guilherme.odas0r@gmail.com",
 			},

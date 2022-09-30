@@ -75,12 +75,12 @@ func (c *Config) setupLayout() error {
 	}
 
 	// create templates/journal.tmpl.md
-	if err := NewFile("# {{ .Title }}", path.Join(c.Sub.Templates, "journal.tmpl.md")); err != nil {
+	if err := NewFile(journalTmpl, path.Join(c.Sub.Templates, "journal.tmpl.md")); err != nil {
 		return err
 	}
 
 	// create templates/zet.tmpl.md
-	if err := NewFile("# {{ .Title }}", path.Join(c.Sub.Templates, "zet.tmpl.md")); err != nil {
+	if err := NewFile(zetTmpl, path.Join(c.Sub.Templates, "zet.tmpl.md")); err != nil {
 		return err
 	}
 

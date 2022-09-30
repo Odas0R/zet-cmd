@@ -187,7 +187,7 @@ func (z *Zettel) Link(zettel *Zettel) error {
 	linkSectionIndex := lo.IndexOf(z.Lines, "## Links")
 
 	if linkSectionIndex == -1 {
-		return errors.New("error: there is no ## Links section on given zettel")
+		return errors.New("error: there is no '## Links' section on given zettel")
 	}
 
 	for index, line := range z.Lines {

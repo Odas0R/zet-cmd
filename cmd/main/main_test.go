@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-const TEST_DIR = "/tmp/foo"
+const TEST_DIR string = "/tmp/foo"
 
 func TestMain(m *testing.M) {
 	// initialize config
