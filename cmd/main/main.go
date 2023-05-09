@@ -296,15 +296,15 @@ func main() {
 						return err
 					}
 
-					if err := SaveOnBackground(); err != nil {
-						return err
-					}
-
 					// only "re-open" the zettel if the zettel title has been modified
 					if ok {
 						if err := zettel.Open(0); err != nil {
 							return err
 						}
+					}
+
+					if err := SaveOnBackground(); err != nil {
+						return err
 					}
 
 					return nil

@@ -238,18 +238,20 @@ func (z *Zettel) Link(zettel *Zettel) error {
 }
 
 func (z *Zettel) Repair() (error, bool) {
+  titleHasChanged := false
+
 	if !z.IsValid() {
-		return errors.New("error: invalid zettel"), false
+		return errors.New("error: invalid zettel"), titleHasChanged
 	}
 
 	// Zemove the old zettel from history
 	if err := history.Delete(z); err != nil {
-		return err, false
+		return err, titleHasChanged
 	}
 
 	// Get new metadata
 	if err := z.ReadMetadata(); err != nil {
-		return err, false
+		return err, titleHasChanged
 	}
 
 	// Title was changed, update the path
@@ -259,16 +261,17 @@ func (z *Zettel) Repair() (error, bool) {
 		if err := os.Rename(oldPath, z.Path); err != nil {
 			return err, false
 		}
+    titleHasChanged = true
 	}
 
 	// Fix the history
 	if err := history.Insert(z); err != nil {
-		return err, false
+		return err, titleHasChanged
 	}
 
 	results, ok := Grep(strconv.FormatInt(z.ID, 10))
 	if !ok {
-		return nil, false
+		return nil, titleHasChanged
 	}
 
 	//
@@ -282,18 +285,18 @@ func (z *Zettel) Repair() (error, bool) {
 		}
 
 		if err := zettel.ReadLines(); err != nil {
-			return err, false
+			return err, titleHasChanged
 		}
 
 		index := result.LineNr - 1
 		zettel.Lines[index] = fmt.Sprintf("- [%s](%s)", z.Title, z.Path)
 
 		if err := zettel.Write(); err != nil {
-			return err, false
+			return err, titleHasChanged
 		}
 	}
 
-	return nil, true
+	return nil, titleHasChanged
 }
 
 func (z *Zettel) ReadLines() error {
