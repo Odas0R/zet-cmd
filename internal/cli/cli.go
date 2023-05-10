@@ -1,31 +1,20 @@
-package main
+package cli
 
 import (
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
 	"sort"
 	"strings"
 
-	"github.com/odas0r/zet/cmd/color"
-	"github.com/odas0r/zet/cmd/columnize"
+	"github.com/odas0r/zet/internal/color"
+	"github.com/odas0r/zet/internal/columnize"
 	"github.com/samber/lo"
 	"github.com/urfave/cli/v2"
 )
 
-func main() {
-
-	// initialize config
-	if err := config.Init(os.Getenv("ZET")); err != nil {
-		log.Fatalf("error: failed to initialize config %V", err)
-	}
-
-	// initialize history
-	if err := history.Init(os.Getenv("ZET"), ".history"); err != nil {
-		log.Fatalf("error: failed to initialize history %V", err)
-	}
+func New() *cli.App {
 
 	app := &cli.App{
 		Name:    "zet",
@@ -313,7 +302,5 @@ func main() {
 		},
 	}
 
-	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
-	}
+	return app
 }

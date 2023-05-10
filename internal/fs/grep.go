@@ -1,4 +1,4 @@
-package grep
+package fs
 
 import (
 	"bufio"

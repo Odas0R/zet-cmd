@@ -1,18 +1,44 @@
 # Zettelkasten under a Terminal
 
-This is just a public repo, you may take some ideas from it since it is not
-extensible.
+```text
+/myapp
+  /cmd
+    /myapp
+      main.go
+  /pkg
+    mypackage.go
+  /api
+    api_definitions.go
+  /internal
+    /mypackage
+      mypackage_internal.go
+  /scripts
+  /web 
+  /assets
+  /test
+  /vendor
+  .gitignore
+  README.md
+  go.mod
+  go.sum
+```
 
-The idea is to be able to:
+**Here's what each directory does:**
 
-1. Query a zettel
-2. Create links between zettels
-3. Intuitive backlog and history
-4. Auto generate tags for zettels
-5. Export data for static site generation _SSG_
-
-The possibilities here are many. I'll add more specific features in the future
-and log what works and doesn't work for me.
+- `cmd`: This is where the application's main() functions live. Every application
+  in your project should have a subdirectory under cmd.
+- `pkg`: Libraries and packages that are okay to be used by applications outside
+  of your project. Other projects will import these libraries expecting them to
+  work.
+- `api`: Definitions of services, protocols, and declarations of the API types.
+- `internal`: Private application and library code. This code cannot be imported
+  from outside your project.
+- `scripts`: Scripts to perform various build, install, analysis, etc operations.
+- `web`: Web-related components: static web assets, SPAs, HTML templates, etc.
+- `ui`: UI-related components.
+- `assets`: Other assets needed for your project to work.
+- `test`: Additional external test apps and test data.
+- `vendor`: Application dependencies (manually vendored, if needed).
 
 # TODOS
 

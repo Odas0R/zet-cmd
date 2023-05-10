@@ -1,4 +1,4 @@
-package main
+package zettel
 
 /**
  * These represent the kick-starter templates which a user can modify

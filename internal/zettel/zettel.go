@@ -1,4 +1,4 @@
-package main
+package zettel
 
 import (
 	"errors"
@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gosimple/slug"
+	"github.com/odas0r/zet/internal/fs"
 	"github.com/samber/lo"
 )
 
@@ -69,7 +70,7 @@ func (z *Zettel) New() error {
 	}
 
 	// Set the lines of the file
-	lines, err := ReadLines(z.Path)
+	lines, err := fs.Cat(z.Path)
 	if err != nil {
 		return err
 	}
@@ -100,7 +101,7 @@ func (z *Zettel) ReadMetadata() error {
 	}
 
 	fileName := filepath.Base(z.Path)
-	idStr, ok := MatchSubstring(".", ".", fileName)
+	idStr, ok := fs.Match(".", ".", fileName)
 	if !ok {
 		return errors.New("error: zettel has an invalid id")
 	}
@@ -269,7 +270,7 @@ func (z *Zettel) Repair() (error, bool) {
 		return err, titleHasChanged
 	}
 
-	results, ok := Grep(strconv.FormatInt(z.ID, 10))
+	results, ok := fs.Grep(strconv.FormatInt(z.ID, 10))
 	if !ok {
 		return nil, titleHasChanged
 	}
@@ -304,7 +305,7 @@ func (z *Zettel) ReadLines() error {
 		return errors.New("error: invalid zettel")
 	}
 
-	lines, err := ReadLines(z.Path)
+	lines, err := fs.Cat(z.Path)
 	if err != nil {
 		return err
 	}
@@ -344,7 +345,7 @@ func (z *Zettel) Delete() error {
 	}
 
 	idStr := strconv.FormatInt(z.ID, 10)
-	results, ok := Grep(idStr)
+	results, ok := fs.Grep(idStr)
 	if !ok {
 		// Delete file
 		if err := os.Remove(z.Path); err != nil {
@@ -441,7 +442,7 @@ func (z *Zettel) Open(lineNr int) error {
 }
 
 func (z *Zettel) IsValid() bool {
-	return strings.Contains(z.Path, config.Path) && FileExists(z.Path)
+	return strings.Contains(z.Path, config.Path) && fs.Exists(z.Path)
 }
 
 // Validates if a string is formatted accordingly, and if the string is a valid
@@ -449,7 +450,7 @@ func (z *Zettel) IsValid() bool {
 //
 // - [$title]($path)
 func ValidateLinkPath(str string) (string, bool) {
-	path, ok := MatchSubstring("(", ")", str)
+	path, ok := fs.Match("(", ")", str)
 	if !ok {
 		return "", false
 	}
