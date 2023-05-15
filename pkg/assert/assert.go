@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/odas0r/zet/cmd/columnize"
+	"github.com/odas0r/zet/pkg/columnize"
 )
 
 func Equal(t *testing.T, got interface{}, expected interface{}, message string) {
@@ -17,7 +17,7 @@ func NotEqual(t *testing.T, got interface{}, expected interface{}, message strin
 
 func assert(t *testing.T, got interface{}, expected interface{}, message string, expectation bool) {
 	errorMessage := []string{
-    "\n",
+		"\n",
 		fmt.Sprintf("message: | \"%v\"", message),
 		fmt.Sprintf("expected: | %v", expected),
 		fmt.Sprintf("got: | %v", got),

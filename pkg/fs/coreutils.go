@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/fs"
 	"io/ioutil"
+	"log"
 	"os"
 )
 
@@ -25,7 +26,18 @@ func Touch(path string) error {
 	return nil
 }
 
-func CatToFile(text string, path string) error {
+// CatContent retrieves content from a file
+func CatContent(filePath string) (string, error) {
+	bytes, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
+}
+
+// WriteToFile writes content to a file.
+// It will append to the file if it already exists and create it if it doesn't.
+func WriteToFile(text string, path string) error {
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
@@ -40,6 +52,7 @@ func CatToFile(text string, path string) error {
 	return nil
 }
 
+// Cat returns all lines from a file
 func Cat(filePath string) ([]string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -72,17 +85,18 @@ func Mkdir(path string) error {
 	return nil
 }
 
+func Remove(path string) {
+	if err := os.Remove(path); err != nil {
+		log.Fatalf("error: failed to remove the file %v", err)
+	}
+}
+
 func Exists(path string) bool {
 	_, err := os.Stat(path)
 	return !errors.Is(err, fs.ErrNotExist)
 }
 
-func NotExists(path string) bool {
-	_, err := os.Stat(path)
-	return errors.Is(err, fs.ErrNotExist)
-}
-
-func InsertLine(path, line string, index int) error {
+func InsertLine(path, newLine string, index int) error {
 	lines, err := Cat(path)
 	if err != nil {
 		return err
@@ -91,7 +105,8 @@ func InsertLine(path, line string, index int) error {
 	fileContent := ""
 	for i, line := range lines {
 		if i == index {
-			fileContent += line
+			fileContent += newLine
+			fileContent += "\n"
 		}
 		fileContent += line
 		fileContent += "\n"
@@ -99,4 +114,3 @@ func InsertLine(path, line string, index int) error {
 
 	return ioutil.WriteFile(path, []byte(fileContent), 0644)
 }
-

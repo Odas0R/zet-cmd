@@ -9,8 +9,8 @@ import (
 )
 
 type Result struct {
-	Path string
-	LineNr   int
+	Path   string
+	LineNr int
 }
 
 func findPattern(file *os.File, pattern string) ([]*Result, bool) {
@@ -22,8 +22,8 @@ func findPattern(file *os.File, pattern string) ([]*Result, bool) {
 		line := scanner.Text()
 		if strings.Contains(line, pattern) {
 			result := &Result{
-				Path: file.Name(),
-				LineNr:   lineIdx,
+				Path:   file.Name(),
+				LineNr: lineIdx,
 			}
 			results = append(results, result)
 		}
