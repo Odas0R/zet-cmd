@@ -2,12 +2,9 @@ package cli
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"io"
 	"log"
-	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -18,7 +15,6 @@ import (
 	"github.com/odas0r/zet/internal/repository"
 	"github.com/odas0r/zet/pkg/database"
 	"github.com/odas0r/zet/pkg/fs"
-	"github.com/odas0r/zet/pkg/slugify"
 	"github.com/urfave/cli/v2"
 )
 
@@ -56,7 +52,7 @@ func New(db *database.Database) *cli.App {
 						log.Fatalf("error: failed to create zettel: %v", err)
 					}
 
-					if err := fs.WriteToFile(newZet.Path, newZet.Content); err != nil {
+					if err := fs.Write(newZet.Path, newZet.Content); err != nil {
 						log.Fatalf("error: failed to write to file: %v", err)
 					}
 
@@ -105,26 +101,26 @@ func New(db *database.Database) *cli.App {
 					path := c.Args().Slice()[0]
 
 					zr := repository.NewZettelRepository(db)
+
 					zet := &model.Zettel{
 						Path: path,
 					}
 
-					if !zet.IsValid() {
-						log.Fatalf("error: zettel on path %s is not valid", path)
-					}
-
-					query := `select * from zettel where path = ?`
-
-					if err := db.DB.GetContext(context.Background(), zet, query, path); err != nil {
-						if !errors.Is(err, sql.ErrNoRows) {
-							return err
-						}
-					}
-
+					// Get all the zettel metadata
 					if err := zet.Read(); err != nil {
 						log.Fatalf("error: failed to read from file: %v", err)
 					}
 
+					if zet.ID == "" {
+						zet.ID = time.Now().Format("20060102150405")
+					}
+
+					// Do repairs if needed
+					if err := zet.Repair(); err != nil {
+						log.Fatalf("error: failed to repair zettel. %v", err)
+					}
+
+					// Update the database with the new zettel, based on the ID
 					if err := zr.Create(context.Background(), zet); err != nil {
 						log.Fatalf("error: failed to create zettel: %v", err)
 					}
@@ -142,7 +138,7 @@ func New(db *database.Database) *cli.App {
 			{
 				Name:  "sync",
 				Usage: "Sync the filesystem with the database and does some fixing on the side",
-				Action: func(c *cli.Context) error {
+				Action: func(_ *cli.Context) error {
 					fleet := fs.List(config.FLEET_PATH)
 					perm := fs.List(config.PERMANENT_PATH)
 
@@ -164,20 +160,15 @@ func New(db *database.Database) *cli.App {
 							// and a counter to avoid collisions
 							zet.ID = fmt.Sprintf("%s%01d", time.Now().Format("20060102150405"), atomic.AddUint64(&counter, 1)%100000)
 
-							// create a new path for the zettel using the new ID
-							basename := slugify.Slug(zet.Title) + "." + zet.ID + ".md"
-							zet.Path = filepath.Join(filepath.Dir(zet.Path), basename)
-
-							if err := fs.WriteToFile(zet.Path, zet.Content); err != nil {
-								log.Fatalf("error: failed to write to file: %v", err)
+							if err := zet.Repair(); err != nil {
+								log.Fatalf("error: failed to repair zettel. %v", err)
 							}
 
-							// remove the old file
-							if err := fs.Remove(path); err != nil {
-								log.Fatalf("error: failed to remove old zettel: %v", err)
-							}
+							fmt.Printf(color.BYellow("[FIX]: %s\n"), zet.Path)
+						}
 
-							fmt.Printf(color.BGreen("[NEW_PATH]: %s\n"), zet.Path)
+						if err := zet.Repair(); err != nil {
+							log.Fatalf("error: failed to repair zettel. %v", err)
 						}
 
 						zettels = append(zettels, zet)
@@ -185,10 +176,30 @@ func New(db *database.Database) *cli.App {
 
 					zr := repository.NewZettelRepository(db)
 
-					fmt.Println(color.BGreen("[LOG]: INDEXING THE ZETTELKASTEN..."))
+					fmt.Println(color.BGreen("[INDEXING]: INDEXING THE ZETTELKASTEN..."))
 
-					// 5. Do a CreateBulk for all the zettels
-					// 6. Do a LinkBulk for all the zettels
+					if err := zr.CreateBulk(context.Background(), zettels...); err != nil {
+						log.Fatalf("error: failed to create zettels: %v", err)
+					}
+
+					var links []*model.Link
+					for _, zet := range zettels {
+						for _, zetLink := range zet.Links {
+							link := &model.Link{
+								From: zet.ID,
+								To:   zetLink.ID,
+							}
+							links = append(links, link)
+						}
+					}
+
+					if len(links) > 0 {
+						if err := zr.LinkBulk(context.Background(), links...); err != nil {
+							log.Fatalf("error: failed to link zettels: %v", err)
+						}
+					}
+
+					fmt.Println(color.BGreen("[FINISH]: ALL GOOD :)"))
 
 					return nil
 				},

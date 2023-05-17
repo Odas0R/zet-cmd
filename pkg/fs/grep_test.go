@@ -11,8 +11,8 @@ func TestGrep(t *testing.T) {
 	t.Run("can grep recursively through directories", func(t *testing.T) {
 		Mkdir("/tmp/test_grep")
 
-		WriteToFile("/tmp/test_grep/file.txt", "some text\n")
-		WriteToFile("/tmp/test_grep/file.txt", "another text\n")
+		Write("/tmp/test_grep/file.txt", "some text\n")
+		Write("/tmp/test_grep/file.txt", "another text\n")
 
 		results, _ := Grep("another text", []string{"/tmp/test_grep"}, []*Result{})
 		assert.Equal(t, len(results), 1, "len(result) should be 1")
@@ -23,10 +23,10 @@ func TestGrep(t *testing.T) {
 		Mkdir("/tmp/test_grep/1/2")
 		Mkdir("/tmp/test_grep/1/2/3")
 
-		WriteToFile("/tmp/test_grep/file.txt", "some text\n")
-		WriteToFile("/tmp/test_grep/1/file.txt", "some text\n")
-		WriteToFile("/tmp/test_grep/1/2/file.txt", "some text\n")
-		WriteToFile("/tmp/test_grep/1/2/3/file.txt", "some text\n")
+		Write("/tmp/test_grep/file.txt", "some text\n")
+		Write("/tmp/test_grep/1/file.txt", "some text\n")
+		Write("/tmp/test_grep/1/2/file.txt", "some text\n")
+		Write("/tmp/test_grep/1/2/3/file.txt", "some text\n")
 
 		results, _ = Grep("some text", []string{"/tmp/test_grep"}, []*Result{})
 
@@ -36,7 +36,7 @@ func TestGrep(t *testing.T) {
 		assert.Equal(t, results[1].Path, "/tmp/test_grep/1/2/file.txt", "result[1] should be /1/2/file.txt")
 		assert.Equal(t, results[0].Path, "/tmp/test_grep/1/2/3/file.txt", "result[0] should be /1/2/3/file.txt")
 
-		WriteToFile("/tmp/test_grep/file1.txt", "key text\n")
+		Write("/tmp/test_grep/file1.txt", "key text\n")
 
 		results, _ = Grep("text", []string{"/tmp/test_grep"}, []*Result{})
 		assert.Equal(t, len(results), 7, "len(result) should be 7")

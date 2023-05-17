@@ -7,12 +7,14 @@ import (
 
 	"github.com/odas0r/zet/internal/config"
 	"github.com/odas0r/zet/pkg/fs"
+	"github.com/odas0r/zet/pkg/slugify"
 )
 
 type Zettel struct {
 	ID        string
 	Title     string
 	Content   string
+	Lines     []string
 	Path      string
 	Type      string
 	Links     []*Zettel
@@ -51,7 +53,7 @@ func (z *Zettel) Read() error {
 		return fmt.Errorf("error: zettel is not valid")
 	}
 
-	lines, err := fs.Cat(z.Path)
+	lines, err := fs.ReadLines(z.Path)
 	if err != nil {
 		return err
 	}
@@ -59,6 +61,7 @@ func (z *Zettel) Read() error {
 	z.ID = z.readId()
 	z.Title = strings.TrimPrefix(lines[0], "# ")
 	z.Content = strings.Join(lines, "\n")
+	z.Lines = lines
 	z.Type = z.readType()
 
 	// read links, get all titles from [[wikilinks]] with the format [[#
@@ -81,6 +84,33 @@ func (z *Zettel) Read() error {
 	z.Links = links
 
 	return nil
+}
+
+func (z *Zettel) Write() error {
+	return fs.Write(z.Path, z.Content)
+}
+
+func (z *Zettel) Repair() error {
+	oldPath := z.Path
+
+	z.Title = strings.TrimPrefix(z.Lines[0], "# ")
+	z.Path = filepath.Join(filepath.Dir(z.Path), slugify.Slug(z.Title)+"."+z.ID+".md")
+
+	if oldPath != z.Path {
+		if err := z.Write(); err != nil {
+			return err
+		}
+
+		if err := fs.Remove(oldPath); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (z *Zettel) IsEqual(z2 *Zettel) bool {
+	return z.ID == z2.ID && z.Title == z2.Title && z.Content == z2.Content && z.Path == z2.Path && z.Type == z2.Type
 }
 
 func (z *Zettel) readId() string {

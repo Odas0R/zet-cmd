@@ -15,7 +15,7 @@ const (
 	DefaultPerms = 0600
 )
 
-func Touch(path string) error {
+func Create(path string) error {
 	myfile, err := os.Create(path)
 	if err != nil {
 		return err
@@ -28,8 +28,8 @@ func Touch(path string) error {
 	return nil
 }
 
-// CatContent retrieves content from a file
-func CatContent(filePath string) (string, error) {
+// Read retrieves content from a file
+func Read(filePath string) (string, error) {
 	bytes, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return "", err
@@ -37,25 +37,8 @@ func CatContent(filePath string) (string, error) {
 	return string(bytes), nil
 }
 
-// WriteToFile writes content to a file.
-// It will append to the file if it already exists and create it if it doesn't.
-func WriteToFile(path string, text string) error {
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	if _, err := f.WriteString(text); err != nil {
-		return err
-	}
-	if err := f.Close(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Cat returns all lines from a file
-func Cat(filePath string) ([]string, error) {
+// ReadLines returns all lines from a file
+func ReadLines(filePath string) ([]string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -75,6 +58,23 @@ func Cat(filePath string) ([]string, error) {
 	}
 
 	return lines, nil
+}
+
+// Write writes content to a file. It will append to the file if it already
+// exists and create it if it doesn't.
+func Write(path string, text string) error {
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	if _, err := f.WriteString(text); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func Mkdir(path string) error {
@@ -111,8 +111,26 @@ func Exists(path string) bool {
 	return !errors.Is(err, fs.ErrNotExist)
 }
 
-func InsertLine(path, newLine string, index int) error {
-	lines, err := Cat(path)
+func InsertLine(path, newLine string) error {
+	lines, err := ReadLines(path)
+	if err != nil {
+		return err
+	}
+
+	fileContent := ""
+	for _, line := range lines {
+		fileContent += line
+		fileContent += "\n"
+	}
+
+	fileContent += newLine
+	fileContent += "\n"
+
+	return ioutil.WriteFile(path, []byte(fileContent), 0644)
+}
+
+func InsertLineAtIndex(path, newLine string, index int) error {
+	lines, err := ReadLines(path)
 	if err != nil {
 		return err
 	}
@@ -130,8 +148,19 @@ func InsertLine(path, newLine string, index int) error {
 	return ioutil.WriteFile(path, []byte(fileContent), 0644)
 }
 
-// Open opens a file with the default $EDITOR from the user system
+// Open opens a file with the default open command from the user system
 func Open(path string) error {
+	cmd := fmt.Sprintf("open %s", path)
+
+	if err := Exec(cmd); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// OpenWithEditor opens a file with the default $EDITOR from the user system
+func OpenWithEditor(path string) error {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		return errors.New("error: $EDITOR is not set")

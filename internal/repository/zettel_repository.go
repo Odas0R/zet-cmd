@@ -23,9 +23,15 @@ func NewZettelRepository(db *database.Database) *ZettelRepository {
 }
 
 func (z *ZettelRepository) Get(ctx context.Context, zettel *model.Zettel) error {
-	query := `
-	select * from zettel where id = ?
-	`
+	var query string
+
+	if zettel.ID != "" {
+		query = `select * from zettel where id = ?`
+	} else if zettel.Path != "" {
+		query = `select * from zettel where path = ?`
+	} else {
+		return errors.New("error: zettel id or path must be provided")
+	}
 
 	err := z.DB.DB.GetContext(ctx, zettel, query, zettel.ID)
 	if err != nil {
@@ -131,8 +137,8 @@ func (z *ZettelRepository) Link(ctx context.Context, z1 *model.Zettel, zettels [
 	links := make([]model.Link, len(zettels))
 	for i, z2 := range zettels {
 		links[i] = model.Link{
-			ZettelID: z1.ID,
-			LinkID:   z2.ID,
+			From: z1.ID,
+			To:   z2.ID,
 		}
 	}
 	_, err := z.DB.DB.NamedExecContext(ctx, query, links)
@@ -147,6 +153,20 @@ func (z *ZettelRepository) Link(ctx context.Context, z1 *model.Zettel, zettels [
 	}
 
 	z1.Links = dbLinks
+
+	return nil
+}
+
+func (z *ZettelRepository) LinkBulk(ctx context.Context, links ...*model.Link) error {
+	query := `
+	insert into link (zettel_id, link_id) values (:zettel_id, :link_id)
+	on conflict (zettel_id, link_id) do nothing
+	`
+
+	_, err := z.DB.DB.NamedExecContext(ctx, query, links)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
