@@ -1,7 +1,8 @@
-package sql
+package database
 
 import (
 	"context"
+	"database/sql"
 	"io"
 	"log"
 	"time"
@@ -75,4 +76,25 @@ func (d *Database) Connect() error {
 	d.DB.SetConnMaxIdleTime(d.connectionMaxIdleTime)
 
 	return nil
+}
+
+type Transaction struct {
+	Tx *sqlx.Tx
+}
+
+func (d *Database) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Transaction, error) {
+	tx, err := d.DB.BeginTxx(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Transaction{Tx: tx}, nil
+}
+
+func (t *Transaction) Commit() error {
+	return t.Tx.Commit()
+}
+
+func (t *Transaction) Rollback() error {
+	return t.Tx.Rollback()
 }

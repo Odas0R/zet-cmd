@@ -3,10 +3,12 @@ package fs
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"io/fs"
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 )
 
 const (
@@ -37,7 +39,7 @@ func CatContent(filePath string) (string, error) {
 
 // WriteToFile writes content to a file.
 // It will append to the file if it already exists and create it if it doesn't.
-func WriteToFile(text string, path string) error {
+func WriteToFile(path string, text string) error {
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
@@ -85,10 +87,23 @@ func Mkdir(path string) error {
 	return nil
 }
 
-func Remove(path string) {
-	if err := os.Remove(path); err != nil {
-		log.Fatalf("error: failed to remove the file %v", err)
+// List returns all files in a directory
+func List(dir string) []string {
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	var paths []string
+	for _, file := range files {
+		fullPath := filepath.Join(dir, file.Name())
+		paths = append(paths, fullPath)
+	}
+	return paths
+}
+
+func Remove(path string) error {
+	return os.Remove(path)
 }
 
 func Exists(path string) bool {
@@ -113,4 +128,20 @@ func InsertLine(path, newLine string, index int) error {
 	}
 
 	return ioutil.WriteFile(path, []byte(fileContent), 0644)
+}
+
+// Open opens a file with the default $EDITOR from the user system
+func Open(path string) error {
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		return errors.New("error: $EDITOR is not set")
+	}
+
+	cmd := fmt.Sprintf("%s %s", editor, path)
+
+	if err := Exec(cmd); err != nil {
+		return err
+	}
+
+	return nil
 }

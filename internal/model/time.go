@@ -6,17 +6,6 @@ import (
 	"time"
 )
 
-type Zettel struct {
-	ID        int64
-	Title     string
-	Type      string
-	Path      string
-	CreatedAt string
-	UpdatedAt string
-	Content   string
-	Links     []Zettel
-}
-
 type Time struct {
 	T time.Time
 }
