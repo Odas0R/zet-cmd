@@ -14,12 +14,14 @@ type Zettel struct {
 	ID        string
 	Title     string
 	Content   string
-	Lines     []string
 	Path      string
 	Type      string
-	Links     []*Zettel
 	CreatedAt Time `db:"created_at"`
 	UpdatedAt Time `db:"updated_at"`
+
+	// Auxiliary fields (not stored in the database)
+	Lines []string
+	Links []*Zettel
 }
 
 // IsValid checks if file is a zettel and if it exists.

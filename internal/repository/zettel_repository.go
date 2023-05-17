@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/odas0r/zet/pkg/database"
 	"github.com/odas0r/zet/pkg/slugify"
 )
+
+var counter uint64
 
 type ZettelRepository struct {
 	DB *database.Database
@@ -48,6 +51,7 @@ func (z *ZettelRepository) Get(ctx context.Context, zettel *model.Zettel) error 
 	}
 
 	zettel.Links = links
+	zettel.Lines = strings.Split(zettel.Content, "\n")
 
 	return nil
 }
@@ -73,6 +77,7 @@ func (r *ZettelRepository) Create(ctx context.Context, z *model.Zettel) error {
 	}
 	if z.Content == "" {
 		z.Content = emptyContent(z.Title)
+		z.Lines = strings.Split(z.Content, "\n")
 	}
 	if z.Type == "" {
 		z.Type = "fleet"
@@ -221,6 +226,5 @@ func emptyContent(title string) string {
 // isosec generates now timestamps like 20220605165935(0-99999) using the atomic
 // package to generate id's, avoiding collisions
 func isosec() string {
-	var counter uint64
 	return fmt.Sprintf("%s%01d", time.Now().Format("20060102150405"), atomic.AddUint64(&counter, 1)%100000)
 }

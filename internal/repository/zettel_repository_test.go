@@ -23,11 +23,10 @@ func TestZettelRepository_Create(t *testing.T) {
 		err := repo.Create(context.Background(), zettel)
 		require.Equal(t, err, nil, "failed to create zettel")
 
-		wantContent := `# Testing Zettel
+		assert.Equal(t, zettel.Lines[0], "# Testing Zettel", "first line should be the title")
+		assert.Equal(t, zettel.Lines[1], "", "second line should be a empty line")
+		assert.Equal(t, zettel.Lines[2], "", "third line should be a empty line")
 
-
-`
-		assert.Equal(t, zettel.Content, wantContent, "content should be empty")
 		assert.Equal(t, zettel.Type, "fleet", "type should be fleet")
 		assert.Equal(t, zettel.Path, "/home/odas0r/github.com/odas0r/zet/fleet/testing-zettel."+zettel.ID+".md", "path should be correct")
 	})
@@ -50,7 +49,18 @@ func TestZettelRepository_Create(t *testing.T) {
 		zettels = append(zettels, z1, z2, z3)
 
 		err := repo.CreateBulk(context.Background(), zettels...)
-		require.Equal(t, err, nil, "error should be nil")
+		require.Equal(t, err, nil, "failed to create zettels in bulk mode")
+
+		err = repo.Get(context.Background(), z1)
+		require.Equal(t, err, nil, "failed to get zettel 1")
+
+		assert.Equal(t, z1.Lines[0], "# Testing Zettel", "first line should be the title")
+		assert.Equal(t, z1.Lines[1], "", "second line should be a empty line")
+		assert.Equal(t, z1.Lines[2], "", "third line should be a empty line")
+
+		assert.Equal(t, z1.Type, "fleet", "type should be fleet")
+		assert.Equal(t, z1.Path, "/home/odas0r/github.com/odas0r/zet/fleet/testing-zettel."+z1.ID+".md", "path should be correct")
+
 	})
 }
 
