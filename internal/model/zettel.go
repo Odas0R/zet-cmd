@@ -5,19 +5,19 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/gosimple/slug"
 	"github.com/odas0r/zet/internal/config"
 	"github.com/odas0r/zet/pkg/fs"
-	"github.com/odas0r/zet/pkg/slugify"
 )
 
 type Zettel struct {
-	ID        string
-	Title     string
-	Content   string
-	Path      string
-	Type      string
-	CreatedAt Time `db:"created_at"`
-	UpdatedAt Time `db:"updated_at"`
+	ID        string `db:"id"`
+	Title     string `db:"title"`
+	Content   string `db:"content"`
+	Path      string `db:"path"`
+	Type      string `db:"type"`
+	CreatedAt Time   `db:"created_at"`
+	UpdatedAt Time   `db:"updated_at"`
 
 	// Auxiliary fields (not stored in the database)
 	Lines []string
@@ -96,7 +96,7 @@ func (z *Zettel) Repair() error {
 	oldPath := z.Path
 
 	z.Title = strings.TrimPrefix(z.Lines[0], "# ")
-	z.Path = filepath.Join(filepath.Dir(z.Path), slugify.Slug(z.Title)+"."+z.ID+".md")
+	z.Path = filepath.Join(filepath.Dir(z.Path), slug.Make(z.Title)+"."+z.ID+".md")
 
 	if oldPath != z.Path {
 		if err := z.Write(); err != nil {

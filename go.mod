@@ -13,6 +13,8 @@ require (
 
 require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.1 // indirect
+	github.com/gosimple/slug v1.13.1 // indirect
+	github.com/gosimple/unidecode v1.0.1 // indirect
 	github.com/muxit-studio/columnize v0.0.0-20200819155840-d363dedc9af5 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 )

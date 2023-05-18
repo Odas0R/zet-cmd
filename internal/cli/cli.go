@@ -146,6 +146,7 @@ func New(db *database.Database) *cli.App {
 
 					var zettels []*model.Zettel
 					var counter uint64
+
 					for _, path := range paths {
 						// 1. Initialize the new zettel and read
 						zet := &model.Zettel{
@@ -159,17 +160,15 @@ func New(db *database.Database) *cli.App {
 							// generate a new ID for the zettel, using the current timestamp
 							// and a counter to avoid collisions
 							zet.ID = fmt.Sprintf("%s%01d", time.Now().Format("20060102150405"), atomic.AddUint64(&counter, 1)%100000)
-
-							if err := zet.Repair(); err != nil {
-								log.Fatalf("error: failed to repair zettel. %v", err)
-							}
-
-							fmt.Printf(color.BYellow("[FIX]: %s\n"), zet.Path)
 						}
 
 						if err := zet.Repair(); err != nil {
 							log.Fatalf("error: failed to repair zettel. %v", err)
 						}
+
+						// fmt.Printf("%s | %s\n", zet.ID, zet.Title)
+
+						fmt.Println(color.BGreen("[SYNC]:"), zet.Path)
 
 						zettels = append(zettels, zet)
 					}

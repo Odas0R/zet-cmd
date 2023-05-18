@@ -8,11 +8,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/gosimple/slug"
 	"github.com/jmoiron/sqlx"
 	"github.com/odas0r/zet/internal/config"
 	"github.com/odas0r/zet/internal/model"
 	"github.com/odas0r/zet/pkg/database"
-	"github.com/odas0r/zet/pkg/slugify"
 )
 
 var counter uint64
@@ -61,7 +61,7 @@ func (r *ZettelRepository) Create(ctx context.Context, z *model.Zettel) error {
   insert into zettel (id, title, content, type, path)
 	values (:id, :title, :content, :type, :path)
 	on conflict (id) do
-	update set title = :title, content = :content, type = :type, path = :path
+	update set title = excluded.title, content = excluded.content, type = excluded.type, path = excluded.path
   returning id, title, content, type, path, created_at, updated_at
   `
 
@@ -73,7 +73,7 @@ func (r *ZettelRepository) Create(ctx context.Context, z *model.Zettel) error {
 		z.ID = isosec()
 	}
 	if z.Path == "" {
-		z.Path = config.FLEET_PATH + "/" + slugify.Slug(z.Title) + "." + z.ID + ".md"
+		z.Path = config.FLEET_PATH + "/" + slug.Make(z.Title) + "." + z.ID + ".md"
 	}
 	if z.Content == "" {
 		z.Content = emptyContent(z.Title)
@@ -102,8 +102,11 @@ func (r *ZettelRepository) CreateBulk(ctx context.Context, zettels ...*model.Zet
 	query := `
   insert into zettel (id, title, content, type, path)
 	values (:id, :title, :content, :type, :path)
-	on conflict (id) do
-	update set title = :title, content = :content, type = :type, path = :path
+	on conflict(id) do update set
+	title = excluded.title,
+	content = excluded.content,
+	type = excluded.type,
+	path = excluded.path
   `
 
 	// Set the zettel default values
@@ -115,7 +118,7 @@ func (r *ZettelRepository) CreateBulk(ctx context.Context, zettels ...*model.Zet
 			z.ID = isosec()
 		}
 		if z.Path == "" {
-			z.Path = config.FLEET_PATH + "/" + slugify.Slug(z.Title) + "." + z.ID + ".md"
+			z.Path = config.FLEET_PATH + "/" + slug.Make(z.Title) + "." + z.ID + ".md"
 		}
 		if z.Content == "" {
 			z.Content = emptyContent(z.Title)
