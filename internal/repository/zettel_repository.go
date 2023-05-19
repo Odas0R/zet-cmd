@@ -30,6 +30,7 @@ type ZettelRepository interface {
 	Unlink(ctx context.Context, zettel *model.Zettel, links []*model.Zettel) error
 	Remove(ctx context.Context, zettel *model.Zettel) error
 	RemoveBulk(ctx context.Context, zettels ...*model.Zettel) error
+	LastOpened(ctx context.Context, zettel *model.Zettel) error
 }
 
 func NewZettelRepository(db *database.Database) ZettelRepository {
@@ -268,6 +269,17 @@ func (z *zettelRepository) RemoveBulk(ctx context.Context, zettels ...*model.Zet
 	query = z.DB.DB.Rebind(query)
 
 	_, err = z.DB.DB.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (z *zettelRepository) LastOpened(ctx context.Context, zettel *model.Zettel) error {
+	query := `select * from zettel order by updated_at desc limit 1`
+
+	err := z.DB.DB.GetContext(ctx, zettel, query)
 	if err != nil {
 		return err
 	}
