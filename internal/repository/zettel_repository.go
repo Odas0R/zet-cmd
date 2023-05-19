@@ -17,15 +17,26 @@ import (
 
 var counter uint64
 
-type ZettelRepository struct {
+type zettelRepository struct {
 	DB *database.Database
 }
 
-func NewZettelRepository(db *database.Database) *ZettelRepository {
-	return &ZettelRepository{DB: db}
+type ZettelRepository interface {
+	Get(ctx context.Context, zettel *model.Zettel) error
+	Create(ctx context.Context, zettel *model.Zettel) error
+	CreateBulk(ctx context.Context, zettels ...*model.Zettel) error
+	Link(ctx context.Context, zettel *model.Zettel, links []*model.Zettel) error
+	LinkBulk(ctx context.Context, links ...*model.Link) error
+	Unlink(ctx context.Context, zettel *model.Zettel, links []*model.Zettel) error
+	Remove(ctx context.Context, zettel *model.Zettel) error
+	RemoveBulk(ctx context.Context, zettels ...*model.Zettel) error
 }
 
-func (z *ZettelRepository) Get(ctx context.Context, zettel *model.Zettel) error {
+func NewZettelRepository(db *database.Database) ZettelRepository {
+	return &zettelRepository{DB: db}
+}
+
+func (z *zettelRepository) Get(ctx context.Context, zettel *model.Zettel) error {
 	var query string
 
 	if zettel.ID != "" {
@@ -56,7 +67,7 @@ func (z *ZettelRepository) Get(ctx context.Context, zettel *model.Zettel) error 
 	return nil
 }
 
-func (r *ZettelRepository) Create(ctx context.Context, z *model.Zettel) error {
+func (r *zettelRepository) Create(ctx context.Context, z *model.Zettel) error {
 	query := `
   insert into zettel (id, title, content, type, path)
 	values (:id, :title, :content, :type, :path)
@@ -98,7 +109,7 @@ func (r *ZettelRepository) Create(ctx context.Context, z *model.Zettel) error {
 	return rows.Err()
 }
 
-func (r *ZettelRepository) CreateBulk(ctx context.Context, zettels ...*model.Zettel) error {
+func (r *zettelRepository) CreateBulk(ctx context.Context, zettels ...*model.Zettel) error {
 	query := `
   insert into zettel (id, title, content, type, path)
 	values (:id, :title, :content, :type, :path)
@@ -136,7 +147,7 @@ func (r *ZettelRepository) CreateBulk(ctx context.Context, zettels ...*model.Zet
 	return nil
 }
 
-func (z *ZettelRepository) Link(ctx context.Context, z1 *model.Zettel, zettels []*model.Zettel) error {
+func (z *zettelRepository) Link(ctx context.Context, z1 *model.Zettel, zettels []*model.Zettel) error {
 	query := `
 	insert into link (zettel_id, link_id) values (:zettel_id, :link_id)
 	on conflict (zettel_id, link_id) do nothing
@@ -165,7 +176,7 @@ func (z *ZettelRepository) Link(ctx context.Context, z1 *model.Zettel, zettels [
 	return nil
 }
 
-func (z *ZettelRepository) LinkBulk(ctx context.Context, links ...*model.Link) error {
+func (z *zettelRepository) LinkBulk(ctx context.Context, links ...*model.Link) error {
 	query := `
 	insert into link (zettel_id, link_id) values (:zettel_id, :link_id)
 	on conflict (zettel_id, link_id) do nothing
@@ -179,7 +190,7 @@ func (z *ZettelRepository) LinkBulk(ctx context.Context, links ...*model.Link) e
 	return nil
 }
 
-func (z *ZettelRepository) Unlink(ctx context.Context, z1 *model.Zettel, zettels []*model.Zettel) error {
+func (z *zettelRepository) Unlink(ctx context.Context, z1 *model.Zettel, zettels []*model.Zettel) error {
 	query := `
 	delete from link
 	where zettel_id = ? and link_id in (?)
@@ -213,6 +224,53 @@ func (z *ZettelRepository) Unlink(ctx context.Context, z1 *model.Zettel, zettels
 	}
 
 	z1.Links = dbLinks
+
+	return nil
+}
+
+func (z *zettelRepository) Remove(ctx context.Context, zettel *model.Zettel) error {
+	query := `delete from zettel where id = :id`
+
+	res, err := z.DB.DB.NamedExecContext(ctx, query, zettel)
+	if err != nil {
+		return err
+	}
+
+	nr, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if nr == 0 {
+		return errors.New("error:	zettel not found")
+	}
+
+	return nil
+}
+
+func (z *zettelRepository) RemoveBulk(ctx context.Context, zettels ...*model.Zettel) error {
+	query := `delete from zettel where id in (?)`
+
+	// Convert slice of Zettel into a comma separated string of IDs.
+	ids := make([]string, len(zettels))
+	for i, zet := range zettels {
+		ids[i] = zet.ID
+	}
+
+	// Replace ? with the actual list of IDs.
+	query, args, err := sqlx.In(query, ids)
+	if err != nil {
+		return err
+	}
+
+	// sqlx.In returns queries with ? bindvars, we can rebind it for our
+	// database.
+	query = z.DB.DB.Rebind(query)
+
+	_, err = z.DB.DB.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
