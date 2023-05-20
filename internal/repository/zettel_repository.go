@@ -17,9 +17,10 @@ import (
 
 var counter uint64
 
-type zettelRepository struct {
-	DB *database.Database
-}
+// Errors
+var (
+	ErrZettelNotFound = errors.New("error: zettel not found")
+)
 
 type ZettelRepository interface {
 	Get(ctx context.Context, zettel *model.Zettel) error
@@ -31,6 +32,13 @@ type ZettelRepository interface {
 	Remove(ctx context.Context, zettel *model.Zettel) error
 	RemoveBulk(ctx context.Context, zettels ...*model.Zettel) error
 	LastOpened(ctx context.Context, zettel *model.Zettel) error
+	History(ctx context.Context) ([]*model.Zettel, error)
+	ListFleet(ctx context.Context) ([]*model.Zettel, error)
+	Backlinks(ctx context.Context, zet *model.Zettel) ([]*model.Zettel, error)
+}
+
+type zettelRepository struct {
+	DB *database.Database
 }
 
 func NewZettelRepository(db *database.Database) ZettelRepository {
@@ -243,7 +251,7 @@ func (z *zettelRepository) Remove(ctx context.Context, zettel *model.Zettel) err
 	}
 
 	if nr == 0 {
-		return errors.New("error:	zettel not found")
+		return ErrZettelNotFound
 	}
 
 	return nil
@@ -285,6 +293,70 @@ func (z *zettelRepository) LastOpened(ctx context.Context, zettel *model.Zettel)
 	}
 
 	return nil
+}
+
+func (z *zettelRepository) History(ctx context.Context) ([]*model.Zettel, error) {
+	query := `select * from zettel order by updated_at desc limit 50`
+
+	zettels := []*model.Zettel{}
+	err := z.DB.DB.SelectContext(ctx, &zettels, query)
+	if err != nil {
+		return nil, err
+	}
+
+	return zettels, nil
+}
+
+func (z *zettelRepository) ListFleet(ctx context.Context) ([]*model.Zettel, error) {
+	query := `select * from zettel where type = 'fleet' order by updated_at desc`
+
+	zettels := []*model.Zettel{}
+	err := z.DB.DB.SelectContext(ctx, &zettels, query)
+	if err != nil {
+		return nil, err
+	}
+
+	return zettels, nil
+}
+
+func (z *zettelRepository) Backlinks(ctx context.Context, zet *model.Zettel) ([]*model.Zettel, error) {
+	query := `
+	select z.*
+	from zettel z
+	join link l on z.id = l.zettel_id
+	where l.link_id = (select id from zettel where path = :path);
+	`
+
+	if zet.Path == "" {
+		query = `
+		select z.*
+		from zettel z
+		join link l on z.id = l.zettel_id
+		where l.link_id = :id;
+		`
+	}
+
+	rows, err := z.DB.DB.NamedQueryContext(ctx, query, zet)
+	if err != nil {
+		return nil, err
+	}
+
+	zettels := []*model.Zettel{}
+	for rows.Next() {
+		zet := &model.Zettel{}
+		err := rows.StructScan(zet)
+		if err != nil {
+			return nil, err
+		}
+
+		zettels = append(zettels, zet)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return zettels, nil
 }
 
 // emptyContent returns an empty content for a zettel, which has the following

@@ -26,8 +26,8 @@ create table link (
 
     primary key (zettel_id, link_id),
 
-    foreign key (zettel_id) references zettel(id),
-    foreign key (link_id) references zettel(id)
+    foreign key (zettel_id) references zettel(id) on delete cascade,
+    foreign key (link_id) references zettel(id) on delete cascade
 ) strict;
 
 create index link_created_idx on link (created_at);
@@ -40,6 +40,6 @@ end;
 
 -- +goose Down
 -- +goose StatementBegin
--- drop table link;
--- drop table zettel;
+drop table link;
+drop table zettel;
 -- +goose StatementEnd

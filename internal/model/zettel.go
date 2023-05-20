@@ -26,6 +26,10 @@ type Zettel struct {
 
 // IsValid checks if file is a zettel and if it exists.
 func (z *Zettel) IsValid() bool {
+	if z.Path == "" && z.ID == "" {
+		return false
+	}
+
 	// Verify if the zettel is valid by checking its ID
 	if z.ID != "" && z.Path == "" {
 		permZettels := fs.List(config.PERMANENT_PATH)
@@ -86,6 +90,25 @@ func (z *Zettel) Read() error {
 	z.Links = links
 
 	return nil
+}
+
+func (z *Zettel) HasBrokenLinks() (bool, error) {
+	var brokenLinks []*Zettel
+	for _, line := range z.Lines {
+		results := fs.MatchAllSubstrings("[[", "]]", line)
+		for _, result := range results {
+			link := &Zettel{
+				ID: result,
+			}
+
+			if !link.IsValid() {
+				brokenLinks = append(brokenLinks, link)
+			}
+
+		}
+	}
+
+	return len(brokenLinks) > 0, nil
 }
 
 func (z *Zettel) Write() error {

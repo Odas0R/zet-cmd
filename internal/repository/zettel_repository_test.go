@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/muxit-studio/test/assert"
@@ -59,13 +61,10 @@ func TestZettelRepository_Create(t *testing.T) {
 			ID:    "1",
 			Title: "Testing Zettel",
 		}
-		err := repo.Create(context.Background(), zettel)
-		require.Equal(t, err, nil, "failed to create zettel")
 
-		zettel = &model.Zettel{
-			ID: "1",
-		}
-		err = repo.Get(context.Background(), zettel)
+		createZettel(t, repo, zettel)
+
+		err := repo.Get(context.Background(), zettel)
 		require.Equal(t, err, nil, "failed to get the zettel from db")
 
 		assert.Equal(t, zettel.Lines[0], "# Testing Zettel", "first line should be the title")
@@ -120,21 +119,21 @@ tempor invidunt ut labore et dolore magna aliquyam
 		// Fetching zettels
 		//
 
-		updateZettelFromDb(t, z1, repo)
+		updateZettel(t, repo, z1)
 
 		assert.Equal(t, z1.Title, "Testing Zettel", "z1 title should be correct")
 		assert.Equal(t, z1.Type, "fleet", "z1 type should be fleet")
 		assert.Equal(t, z1.Path, "/home/odas0r/github.com/odas0r/zet/fleet/testing-zettel."+z1.ID+".md", "z1 path should be correct")
 		assert.Equal(t, z1.Lines[0], "# Testing Zettel aiosjfoiasj foiaasfiajsof  oasjdf oi", "z1 first line should be correct")
 
-		updateZettelFromDb(t, z2, repo)
+		updateZettel(t, repo, z2)
 
 		assert.Equal(t, z2.Title, "Testing Zettel", "z2 title should be correct")
 		assert.Equal(t, z2.Type, "fleet", "z2 type should be fleet")
 		assert.Equal(t, z2.Path, "/home/odas0r/github.com/odas0r/zet/fleet/testing-zettel."+z2.ID+".md", "z2 path should be correct")
 		assert.Equal(t, z2.Lines[0], "# Testing Zettel aiosjfoiasj foia", "z2 line 1 should be correct")
 
-		updateZettelFromDb(t, z3, repo)
+		updateZettel(t, repo, z3)
 
 		assert.Equal(t, z3.Title, "Testing Zettel", "z3 title should be correct")
 		assert.Equal(t, z3.Type, "fleet", "z3 type should be fleet")
@@ -162,13 +161,14 @@ func TestZettelRepository_Link(t *testing.T) {
 			Title: "Testing Zettel 3",
 		}
 
-		repo.Create(context.Background(), z1)
-		repo.Create(context.Background(), z2)
-		repo.Create(context.Background(), z3)
+		createZettel(t, repo, z1)
+		createZettel(t, repo, z2)
+		createZettel(t, repo, z3)
 
 		err := repo.Link(context.Background(), z1, []*model.Zettel{z2, z3})
 		require.Equal(t, err, nil, "failed to link zettels")
 
+		assert.Equal(t, len(z1.Links), 2, "z1 should have 2 links")
 		assert.Equal(t, z1.Links[0].ID, "2", "z1 should link to z2")
 		assert.Equal(t, z1.Links[1].ID, "3", "z1 should link to z3")
 	})
@@ -191,9 +191,9 @@ func TestZettelRepository_Link(t *testing.T) {
 			Title: "Testing Zettel 3",
 		}
 
-		repo.Create(context.Background(), z1)
-		repo.Create(context.Background(), z2)
-		repo.Create(context.Background(), z3)
+		createZettel(t, repo, z1)
+		createZettel(t, repo, z2)
+		createZettel(t, repo, z3)
 
 		err := repo.Link(context.Background(), z1, []*model.Zettel{z2, z3})
 		require.Equal(t, err, nil, "failed to link zettels")
@@ -210,6 +210,60 @@ func TestZettelRepository_Link(t *testing.T) {
 		err = repo.Unlink(context.Background(), z2, []*model.Zettel{z1})
 		assert.Equal(t, err, nil, "error should be nil")
 		assert.Equal(t, len(z2.Links), 1, "z2 should link to z1")
+	})
+
+	t.Run("can get backlinks", func(t *testing.T) {
+		db := sqltest.CreateDatabase(t)
+
+		repo := NewZettelRepository(db)
+
+		z1 := &model.Zettel{
+			ID:    "1",
+			Title: "Testing Zettel",
+		}
+		z2 := &model.Zettel{
+			ID:    "2",
+			Title: "Testing Zettel 2",
+		}
+		z3 := &model.Zettel{
+			ID:    "3",
+			Title: "Testing Zettel 3",
+		}
+
+		createZettel(t, repo, z1)
+		createZettel(t, repo, z2)
+		createZettel(t, repo, z3)
+
+		links := []*model.Link{
+			{
+				From: z1.ID,
+				To:   z2.ID,
+			},
+			{
+				From: z1.ID,
+				To:   z3.ID,
+			},
+			{
+				From: z2.ID,
+				To:   z1.ID,
+			},
+			{
+				From: z2.ID,
+				To:   z3.ID,
+			},
+		}
+
+		err := repo.LinkBulk(context.Background(), links...)
+		require.Equal(t, err, nil, "failed to bulk link zettels")
+
+		backlinks, err := repo.Backlinks(context.Background(), z3)
+		require.Equal(t, err, nil, "failed to query the backlinks")
+
+		ids := strings.Join(([]string{backlinks[0].ID, backlinks[1].ID}), " ")
+
+		assert.Equal(t, len(backlinks), 2, "z3 should have 2 backlinks")
+		assert.Equal(t, strings.Contains(ids, "1"), true, "z3 should have a backlink to z1")
+		assert.Equal(t, strings.Contains(ids, "2"), true, "z3 should have a backlink to z2")
 	})
 
 	t.Run("can link bulk", func(t *testing.T) {
@@ -230,9 +284,9 @@ func TestZettelRepository_Link(t *testing.T) {
 			Title: "Testing Zettel 3",
 		}
 
-		repo.Create(context.Background(), z1)
-		repo.Create(context.Background(), z2)
-		repo.Create(context.Background(), z3)
+		createZettel(t, repo, z1)
+		createZettel(t, repo, z2)
+		createZettel(t, repo, z3)
 
 		links := []*model.Link{
 			{
@@ -268,12 +322,56 @@ func TestZettelRepository_Remove(t *testing.T) {
 
 		repo := NewZettelRepository(db)
 
+		z1 := &model.Zettel{
+			ID:    "1",
+			Title: "Testing Zettel",
+		}
+		z2 := &model.Zettel{
+			ID:    "2",
+			Title: "Testing Zettel 2",
+		}
+		z3 := &model.Zettel{
+			ID:    "3",
+			Title: "Testing Zettel 3",
+		}
+
+		createZettel(t, repo, z1)
+		createZettel(t, repo, z2)
+		createZettel(t, repo, z3)
+
+		links := []*model.Link{
+			{
+				From: z3.ID,
+				To:   z1.ID,
+			},
+			{
+				From: z2.ID,
+				To:   z1.ID,
+			},
+		}
+
+		err := repo.LinkBulk(context.Background(), links...)
+		require.Equal(t, err, nil, "failed to bulk link zettels")
+
+		err = repo.Remove(context.Background(), z1)
+		require.Equal(t, err, nil, "failed to remove zettel")
+
+		updateZettel(t, repo, z2)
+		assert.Equal(t, len(z2.Links), 0, "z2 should not link to z1")
+		updateZettel(t, repo, z3)
+		assert.Equal(t, len(z3.Links), 0, "z3 should not link to z1")
+	})
+	t.Run("can remove a zettel and its links", func(t *testing.T) {
+		db := sqltest.CreateDatabase(t)
+
+		repo := NewZettelRepository(db)
+
 		zettel := &model.Zettel{
-			ID:    "123",
+			ID:    "1",
 			Title: "Testing Zettel",
 		}
 
-		repo.Create(context.Background(), zettel)
+		createZettel(t, repo, zettel)
 
 		err := repo.Remove(context.Background(), zettel)
 		require.Equal(t, err, nil, "failed to remove zettel")
@@ -286,54 +384,49 @@ func TestZettelRepository_Remove(t *testing.T) {
 
 		repo := NewZettelRepository(db)
 
-		err := repo.CreateBulk(context.Background(), []*model.Zettel{
+		zettels := []*model.Zettel{
 			{
-				ID:    "123",
+				ID:    "1",
 				Title: "Testing Zettel",
 			},
 			{
-				ID:    "1234",
+				ID:    "2",
 				Title: "Testing Zettel",
 			},
 			{
-				ID:    "12345",
+				ID:    "3",
 				Title: "Testing Zettel",
 			},
-		}...)
+		}
+
+		err := repo.CreateBulk(context.Background(), zettels...)
 		require.Equal(t, err, nil, "failed to create zettel")
 
-		err = repo.RemoveBulk(context.Background(), []*model.Zettel{
-			{
-				ID:    "123",
-				Title: "Testing Zettel",
-			},
-			{
-				ID:    "1234",
-				Title: "Testing Zettel",
-			},
-			{
-				ID:    "12345",
-				Title: "Testing Zettel",
-			},
-		}...)
-		require.Equal(t, err, nil, "failed to remove zettel")
+		err = repo.RemoveBulk(context.Background(), zettels...)
+		require.Equal(t, err, nil, "failed to remove zettel in bulk")
 
-		err = repo.Get(context.Background(), &model.Zettel{
-			ID: "123",
-		})
+		err = repo.Get(context.Background(), zettels[0])
 		assert.Equal(t, err, sql.ErrNoRows, "zettel should not exist")
-		err = repo.Get(context.Background(), &model.Zettel{
-			ID: "1234",
-		})
+
+		err = repo.Get(context.Background(), zettels[1])
 		assert.Equal(t, err, sql.ErrNoRows, "zettel should not exist")
-		err = repo.Get(context.Background(), &model.Zettel{
-			ID: "12345",
-		})
+
+		err = repo.Get(context.Background(), zettels[2])
 		assert.Equal(t, err, sql.ErrNoRows, "zettel should not exist")
 	})
 }
 
-func updateZettelFromDb(t *testing.T, z *model.Zettel, repo ZettelRepository) {
+func createZettel(t *testing.T, repo ZettelRepository, z *model.Zettel) {
+	err := repo.Remove(context.Background(), z)
+	if !errors.Is(err, ErrZettelNotFound) {
+		require.Equal(t, err, nil, "failed to remove zettel")
+	}
+
+	err = repo.Create(context.Background(), z)
+	require.Equal(t, err, nil, "failed to create zettel")
+}
+
+func updateZettel(t *testing.T, repo ZettelRepository, z *model.Zettel) {
 	zet := &model.Zettel{
 		ID: z.ID,
 	}
