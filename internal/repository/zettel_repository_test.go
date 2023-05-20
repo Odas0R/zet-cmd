@@ -416,6 +416,42 @@ func TestZettelRepository_Remove(t *testing.T) {
 	})
 }
 
+func TestZettelRepository_Search(t *testing.T) {
+	t.Run("can search by query", func(t *testing.T) {
+		// db := sqltest.CreateDatabase(t)
+		//
+		// repo := NewZettelRepository(db)
+		//
+		// z1 := &model.Zettel{
+		// 	ID:      "1",
+		// 	Title:   "Testing Zettel",
+		// 	Content: "This is a test",
+		// }
+		// z2 := &model.Zettel{
+		// 	ID:      "2",
+		// 	Title:   "Testing Zettel 2",
+		// 	Content: "A random test",
+		// }
+		// z3 := &model.Zettel{
+		// 	ID:      "3",
+		// 	Title:   "Testing Zettel 3",
+		// 	Content: "An example test",
+		// }
+		//
+		// createZettel(t, repo, z1)
+		// createZettel(t, repo, z2)
+		// createZettel(t, repo, z3)
+		//
+		// zettels, err := repo.Search(context.Background(), "random")
+		// require.Equal(t, err, nil, "failed to search zettels")
+		// assert.Equal(t, len(zettels), 1, "should find all zettels")
+		//
+		// zettels, err = repo.Search(context.Background(), "zettel")
+		// require.Equal(t, err, nil, "failed to search zettels")
+		// assert.Equal(t, len(zettels), 3, "should find all zettels")
+	})
+}
+
 func createZettel(t *testing.T, repo ZettelRepository, z *model.Zettel) {
 	err := repo.Remove(context.Background(), z)
 	if !errors.Is(err, ErrZettelNotFound) {

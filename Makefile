@@ -6,9 +6,9 @@ new:
 	@read -p "Enter the name of the new zettel: " name; \
 		goose -dir ./migrations sqlite3 ./zettel.db create $$name sql
 up:
-	goose -dir ./migrations sqlite3 ./zettel.db up 1
+	goose -dir ./migrations sqlite3 ./zettel.db up-by-one
 down:
-	goose -dir ./migrations sqlite3 ./zettel.db down 1
+	goose -dir ./migrations sqlite3 ./zettel.db down
 status:
 	goose -dir ./migrations sqlite3 ./zettel.db status
 schema:

@@ -35,6 +35,7 @@ type ZettelRepository interface {
 	History(ctx context.Context) ([]*model.Zettel, error)
 	ListFleet(ctx context.Context) ([]*model.Zettel, error)
 	Backlinks(ctx context.Context, zet *model.Zettel) ([]*model.Zettel, error)
+	Search(ctx context.Context, query string) ([]*model.Zettel, error)
 }
 
 type zettelRepository struct {
@@ -353,6 +354,30 @@ func (z *zettelRepository) Backlinks(ctx context.Context, zet *model.Zettel) ([]
 	}
 
 	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return zettels, nil
+}
+
+func (z *zettelRepository) Search(ctx context.Context, query string) ([]*model.Zettel, error) {
+	q := `
+	select
+		z.id,
+		z.title,
+		z.content,
+		z.path,
+		z.created_at,
+	  z.updated_at
+	from zettel z
+	  join zettel_fts zf on (zf.rowid = z.id)
+	where zettel_fts match ?
+	order by rank
+	`
+
+	var zettels []*model.Zettel
+	err := z.DB.DB.SelectContext(ctx, &zettels, q, query)
+	if err != nil {
 		return nil, err
 	}
 
