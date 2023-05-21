@@ -20,6 +20,10 @@ github.com/muxit-studio/columnize v0.0.0-20200819155840-d363dedc9af5 h1:obCrc7is
 github.com/muxit-studio/columnize v0.0.0-20200819155840-d363dedc9af5/go.mod h1:yJxjL3JBNNaKfDrGpXqzedt7sA73/EyyIyApAVsTT08=
 github.com/muxit-studio/test v0.1.1 h1:4JOIYa4L5El6YnCjwRINtGPfrDyd2Zx57s1BVA6sHYQ=
 github.com/muxit-studio/test v0.1.1/go.mod h1:NhIih+rLLj7+WWXutUVXo0rYdVAqx7DE8d3d4vAWs/A=
+github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
+github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+github.com/pressly/goose v2.7.0+incompatible h1:PWejVEv07LCerQEzMMeAtjuyCKbyprZ/LBa6K5P0OCQ=
+github.com/pressly/goose v2.7.0+incompatible/go.mod h1:m+QHWCqxR3k8D9l7qfzuC/djtlfzxr34mozWDYEu1z8=
 github.com/russross/blackfriday/v2 v2.1.0 h1:JIOH55/0cWyOuilr9/qlrm0BSXldqnqwMsf35Ld67mk=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/urfave/cli/v2 v2.4.0 h1:m2pxjjDFgDxSPtO8WSdbndj17Wu2y8vOT86wE/tjr+I=

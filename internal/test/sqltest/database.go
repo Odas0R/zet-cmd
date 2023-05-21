@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/odas0r/zet/pkg/database"
-	"github.com/odas0r/zet/pkg/fs"
+	"github.com/pressly/goose"
 )
 
 const (
@@ -26,9 +26,11 @@ func CreateDatabase(t *testing.T) *database.Database {
 		t.Fatal(err)
 	}
 
-	cmd := fmt.Sprintf("goose -dir %s/migrations sqlite3 %s/zettel_test.db up", ZET_CMD_PATH, ZET_CMD_PATH)
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		t.Fatal(err)
+	}
 
-	if err := fs.Exec(cmd); err != nil {
+	if err := goose.Up(db.DB.DB, fmt.Sprintf("%s/migrations", ZET_CMD_PATH)); err != nil {
 		t.Fatal(err)
 	}
 

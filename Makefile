@@ -1,5 +1,6 @@
 build:
-	go build -o zet ./cmd/zet && ./zet
+	go build -tags "fts5" -o zet ./cmd/zet \
+		&& goose -dir ./migrations sqlite3 ./zettel.db up
 db:
 	sqlite3 ./zettel.db
 new:
@@ -14,6 +15,6 @@ status:
 schema:
 	sqlite-utils schema zettel.db
 test:
-	go test ./...
+	go test -tags "fts5" ./...
 
 .PHONY: build test new up down status schema
