@@ -32,9 +32,9 @@ func TestZettelRepository_Get(t *testing.T) {
 			Title: "Testing Zettel 3",
 		}
 
-		repo.Create(context.Background(), z1)
-		repo.Create(context.Background(), z2)
-		repo.Create(context.Background(), z3)
+		repo.Save(context.Background(), z1)
+		repo.Save(context.Background(), z2)
+		repo.Save(context.Background(), z3)
 
 		err := repo.Link(context.Background(), z1, []*model.Zettel{z2, z3})
 		require.Equal(t, err, nil, "failed to link zettels")
@@ -112,7 +112,7 @@ tempor invidunt ut labore et dolore magna aliquyam
 		var zettels []*model.Zettel
 		zettels = append(zettels, z1, z2, z3)
 
-		err := repo.CreateBulk(context.Background(), zettels...)
+		err := repo.SaveBulk(context.Background(), zettels...)
 		require.Equal(t, err, nil, "failed to create zettels in bulk mode")
 
 		//
@@ -399,7 +399,7 @@ func TestZettelRepository_Remove(t *testing.T) {
 			},
 		}
 
-		err := repo.CreateBulk(context.Background(), zettels...)
+		err := repo.SaveBulk(context.Background(), zettels...)
 		require.Equal(t, err, nil, "failed to create zettel")
 
 		err = repo.RemoveBulk(context.Background(), zettels...)
@@ -413,6 +413,121 @@ func TestZettelRepository_Remove(t *testing.T) {
 
 		err = repo.Get(context.Background(), zettels[2])
 		assert.Equal(t, err, sql.ErrNoRows, "zettel should not exist")
+	})
+}
+
+func TestZettelRepository_List(t *testing.T) {
+	t.Run("can list all fleets", func(t *testing.T) {
+		db := sqltest.CreateDatabase(t)
+		repo := NewZettelRepository(db)
+
+		err := repo.Reset(context.Background())
+		require.Equal(t, err, nil, "failed to reset database")
+
+		zettels := []*model.Zettel{
+			{
+				ID:    "1",
+				Title: "Testing Zettel",
+			},
+			{
+				ID:    "2",
+				Title: "Testing Zettel",
+			},
+			{
+				ID:    "3",
+				Title: "Testing Zettel",
+			},
+		}
+
+		err = repo.SaveBulk(context.Background(), zettels...)
+		require.Equal(t, err, nil, "failed to create zettel")
+
+		fleets, err := repo.ListFleet(context.Background())
+		require.Equal(t, err, nil, "failed to list fleets")
+
+		assert.Equal(t, len(fleets), 3, "should have no fleets")
+	})
+
+	t.Run("can list all permanent ", func(t *testing.T) {
+		db := sqltest.CreateDatabase(t)
+		repo := NewZettelRepository(db)
+
+		err := repo.Reset(context.Background())
+		require.Equal(t, err, nil, "failed to reset database")
+
+		zettels := []*model.Zettel{
+			{
+				ID:    "1",
+				Title: "Testing Zettel",
+			},
+			{
+				ID:    "2",
+				Title: "Testing Zettel",
+			},
+			{
+				ID:    "3",
+				Title: "Testing Zettel",
+			},
+		}
+
+		err = repo.SaveBulk(context.Background(), zettels...)
+		require.Equal(t, err, nil, "failed to create zettel")
+
+		// List All Permanent
+		//
+		zettels[0].Type = "permanent"
+		zettels[0].Path = strings.Replace(zettels[0].Path, "fleet", "permanent", 1)
+
+		zettels[1].Type = "permanent"
+		zettels[1].Path = strings.Replace(zettels[1].Path, "fleet", "permanent", 1)
+
+		err = repo.SaveBulk(context.Background(), zettels...)
+		require.Equal(t, err, nil, "failed to save zettel")
+
+		permanents, err := repo.ListPermanent(context.Background())
+		require.Equal(t, err, nil, "failed to list permanent")
+		assert.Equal(t, len(permanents), 2, "should have no fleets")
+	})
+
+	t.Run("can list all zettels", func(t *testing.T) {
+		db := sqltest.CreateDatabase(t)
+		repo := NewZettelRepository(db)
+
+		err := repo.Reset(context.Background())
+		require.Equal(t, err, nil, "failed to reset database")
+
+		zettels := []*model.Zettel{
+			{
+				ID:    "1",
+				Title: "Testing Zettel",
+			},
+			{
+				ID:    "2",
+				Title: "Testing Zettel",
+			},
+			{
+				ID:    "3",
+				Title: "Testing Zettel",
+			},
+		}
+
+		err = repo.SaveBulk(context.Background(), zettels...)
+		require.Equal(t, err, nil, "failed to create zettel")
+
+		// List All Permanent
+		//
+		zettels[0].Type = "permanent"
+		zettels[0].Path = strings.Replace(zettels[0].Path, "fleet", "permanent", 1)
+
+		zettels[1].Type = "permanent"
+		zettels[1].Path = strings.Replace(zettels[1].Path, "fleet", "permanent", 1)
+
+		err = repo.SaveBulk(context.Background(), zettels...)
+		require.Equal(t, err, nil, "failed to save zettel")
+
+		zettels, err = repo.ListAll(context.Background())
+		require.Equal(t, err, nil, "failed to list permanent")
+		assert.Equal(t, len(zettels), 3, "should have no fleets")
 	})
 }
 
@@ -457,8 +572,7 @@ func createZettel(t *testing.T, repo ZettelRepository, z *model.Zettel) {
 	if !errors.Is(err, ErrZettelNotFound) {
 		require.Equal(t, err, nil, "failed to remove zettel")
 	}
-
-	err = repo.Create(context.Background(), z)
+	err = repo.Save(context.Background(), z)
 	require.Equal(t, err, nil, "failed to create zettel")
 }
 
@@ -480,4 +594,7 @@ func updateZettel(t *testing.T, repo ZettelRepository, z *model.Zettel) {
 	// Auxiliary fields
 	z.Links = zet.Links
 	z.Lines = zet.Lines
+}
+
+func cleanupZettels(t *testing.T, repo ZettelRepository) {
 }

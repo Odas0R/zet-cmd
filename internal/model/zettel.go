@@ -25,15 +25,15 @@ type Zettel struct {
 }
 
 // IsValid checks if file is a zettel and if it exists.
-func (z *Zettel) IsValid() bool {
+func (z *Zettel) IsValid(cfg *config.Config) bool {
 	if z.Path == "" && z.ID == "" {
 		return false
 	}
 
 	// Verify if the zettel is valid by checking its ID
 	if z.ID != "" && z.Path == "" {
-		permZettels := fs.List(config.PERMANENT_PATH)
-		fleetZettels := fs.List(config.FLEET_PATH)
+		permZettels := fs.List(cfg.PermanentRoot)
+		fleetZettels := fs.List(cfg.FleetRoot)
 
 		zettels := append(permZettels, fleetZettels...)
 
@@ -48,14 +48,14 @@ func (z *Zettel) IsValid() bool {
 	}
 
 	// Verify if the zettel is valid by checking its path
-	return fs.Exists(z.Path) && (strings.Contains(z.Path, config.FLEET_PATH) ||
-		strings.Contains(z.Path, config.PERMANENT_PATH))
+	return fs.Exists(z.Path) && (strings.Contains(z.Path, cfg.FleetRoot) ||
+		strings.Contains(z.Path, cfg.PermanentRoot))
 }
 
 // Read reads a zettel from the disk and gets all the metadata from it. Useful
 // to query data from the file and insert into a database.
-func (z *Zettel) Read() error {
-	if !z.IsValid() {
+func (z *Zettel) Read(cfg *config.Config) error {
+	if !z.IsValid(cfg) {
 		return fmt.Errorf("error: zettel is not valid")
 	}
 
@@ -68,7 +68,7 @@ func (z *Zettel) Read() error {
 	z.Title = strings.TrimPrefix(lines[0], "# ")
 	z.Content = strings.Join(lines, "\n")
 	z.Lines = lines
-	z.Type = z.readType()
+	z.Type = z.readType(cfg)
 
 	// read links, get all titles from [[wikilinks]] with the format [[#
 	// <title>|<id>]]
@@ -80,7 +80,7 @@ func (z *Zettel) Read() error {
 				link := &Zettel{
 					ID: result,
 				}
-				if link.IsValid() {
+				if link.IsValid(cfg) {
 					links = append(links, link)
 				}
 			}
@@ -92,7 +92,7 @@ func (z *Zettel) Read() error {
 	return nil
 }
 
-func (z *Zettel) HasBrokenLinks() (bool, error) {
+func (z *Zettel) HasBrokenLinks(cfg *config.Config) (bool, error) {
 	var brokenLinks []*Zettel
 	for _, line := range z.Lines {
 		results := fs.MatchAllSubstrings("[[", "]]", line)
@@ -101,7 +101,7 @@ func (z *Zettel) HasBrokenLinks() (bool, error) {
 				ID: result,
 			}
 
-			if !link.IsValid() {
+			if !link.IsValid(cfg) {
 				brokenLinks = append(brokenLinks, link)
 			}
 
@@ -143,11 +143,11 @@ func (z *Zettel) readId() string {
 	return fs.MatchSubstring(".", ".", fileName)
 }
 
-func (z *Zettel) readType() string {
+func (z *Zettel) readType(cfg *config.Config) string {
 	var typ string
-	if strings.Contains(z.Path, config.FLEET_PATH) {
+	if strings.Contains(z.Path, cfg.FleetRoot) {
 		typ = "fleet"
-	} else if strings.Contains(z.Path, config.PERMANENT_PATH) {
+	} else if strings.Contains(z.Path, cfg.PermanentRoot) {
 		typ = "permanent"
 	}
 	return typ

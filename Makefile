@@ -1,10 +1,13 @@
 build:
-	go build -tags "fts5" -o zet ./cmd/zet \
+	go test -tags "fts5" ./... \
+	&& go build -tags "fts5" -o zet ./cmd/zet \
 		&& goose -dir ./migrations sqlite3 ./zettel.db up
+watch:
+	find . -name '*.go' | entr -cs 'go test -tags "fts5" ./... && go build -tags "fts5" -o zet ./cmd/zet'
 db:
 	sqlite3 ./zettel.db
 new:
-	@read -p "Enter the name of the new zettel: " name; \
+	@read -p "Enter the name of the new migration: " name; \
 		goose -dir ./migrations sqlite3 ./zettel.db create $$name sql
 up:
 	goose -dir ./migrations sqlite3 ./zettel.db up-by-one
@@ -17,4 +20,4 @@ schema:
 test:
 	go test -tags "fts5" ./...
 
-.PHONY: build test new up down status schema
+.PHONY: build test new up down status schema watch

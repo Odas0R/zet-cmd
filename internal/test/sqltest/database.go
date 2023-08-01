@@ -8,16 +8,12 @@ import (
 	"github.com/pressly/goose"
 )
 
-const (
-	ZET_CMD_PATH = "/home/odas0r/github.com/odas0r/zet-cmd"
-)
-
 // CreateDatabase for testing.
-func CreateDatabase(t *testing.T) *database.Database {
+func CreateDatabase(t *testing.T, root string) *database.Database {
 	t.Helper()
 
 	db := database.NewDatabase(database.NewDatabaseOptions{
-		URL:                fmt.Sprintf("file:%s/zettel_test.db", ZET_CMD_PATH),
+		URL:                fmt.Sprintf("file:%s/zettel_test.db", root),
 		MaxOpenConnections: 1,
 		MaxIdleConnections: 1,
 	})
@@ -30,7 +26,7 @@ func CreateDatabase(t *testing.T) *database.Database {
 		t.Fatal(err)
 	}
 
-	if err := goose.Up(db.DB.DB, fmt.Sprintf("%s/migrations", ZET_CMD_PATH)); err != nil {
+	if err := goose.Up(db.DB.DB, fmt.Sprintf("%s/migrations", root)); err != nil {
 		t.Fatal(err)
 	}
 

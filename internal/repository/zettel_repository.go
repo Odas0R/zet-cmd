@@ -24,8 +24,11 @@ var (
 
 type ZettelRepository interface {
 	Get(ctx context.Context, zettel *model.Zettel) error
-	Create(ctx context.Context, zettel *model.Zettel) error
-	CreateBulk(ctx context.Context, zettels ...*model.Zettel) error
+
+	// Save works for both fleet and permanent, if you to make a zettel permanent
+	// you just need to update the path :)
+	Save(ctx context.Context, zettel *model.Zettel) error
+	SaveBulk(ctx context.Context, zettels ...*model.Zettel) error
 	Link(ctx context.Context, zettel *model.Zettel, links []*model.Zettel) error
 	LinkBulk(ctx context.Context, links ...*model.Link) error
 	Unlink(ctx context.Context, zettel *model.Zettel, links []*model.Zettel) error
@@ -34,19 +37,31 @@ type ZettelRepository interface {
 	LastOpened(ctx context.Context, zettel *model.Zettel) error
 	History(ctx context.Context) ([]*model.Zettel, error)
 	ListFleet(ctx context.Context) ([]*model.Zettel, error)
+	ListPermanent(ctx context.Context) ([]*model.Zettel, error)
+	ListAll(ctx context.Context) ([]*model.Zettel, error)
 	Backlinks(ctx context.Context, zet *model.Zettel) ([]*model.Zettel, error)
 	Search(ctx context.Context, query string) ([]*model.Zettel, error)
+	Reset(ctx context.Context) error
+	Config() *config.Config
 }
 
 type zettelRepository struct {
-	DB *database.Database
+	config *config.Config
+	DB     *database.Database
 }
 
-func NewZettelRepository(db *database.Database) ZettelRepository {
-	return &zettelRepository{DB: db}
+func NewZettelRepository(db *database.Database, config *config.Config) ZettelRepository {
+	return &zettelRepository{
+		config: config,
+		DB:     db,
+	}
 }
 
-func (z *zettelRepository) Get(ctx context.Context, zettel *model.Zettel) error {
+func (zr *zettelRepository) Config() *config.Config {
+	return zr.config
+}
+
+func (zr *zettelRepository) Get(ctx context.Context, zettel *model.Zettel) error {
 	var query string
 
 	if zettel.ID != "" {
@@ -57,7 +72,7 @@ func (z *zettelRepository) Get(ctx context.Context, zettel *model.Zettel) error 
 		return errors.New("error: zettel id or path must be provided")
 	}
 
-	err := z.DB.DB.GetContext(ctx, zettel, query, zettel.ID)
+	err := zr.DB.DB.GetContext(ctx, zettel, query, zettel.ID)
 	if err != nil {
 		return err
 	}
@@ -66,7 +81,7 @@ func (z *zettelRepository) Get(ctx context.Context, zettel *model.Zettel) error 
 	query = `
 	SELECT z2.* FROM link l JOIN zettel z2 ON l.link_id = z2.id WHERE l.zettel_id = ?
 	`
-	err = z.DB.DB.SelectContext(ctx, &links, query, zettel.ID)
+	err = zr.DB.DB.SelectContext(ctx, &links, query, zettel.ID)
 	if err != nil {
 		return err
 	}
@@ -77,7 +92,7 @@ func (z *zettelRepository) Get(ctx context.Context, zettel *model.Zettel) error 
 	return nil
 }
 
-func (r *zettelRepository) Create(ctx context.Context, z *model.Zettel) error {
+func (zr *zettelRepository) Save(ctx context.Context, z *model.Zettel) error {
 	query := `
   insert into zettel (id, title, content, type, path)
 	values (:id, :title, :content, :type, :path)
@@ -94,7 +109,7 @@ func (r *zettelRepository) Create(ctx context.Context, z *model.Zettel) error {
 		z.ID = isosec()
 	}
 	if z.Path == "" {
-		z.Path = config.FLEET_PATH + "/" + slug.Make(z.Title) + "." + z.ID + ".md"
+		z.Path = zr.config.FleetRoot + "/" + slug.Make(z.Title) + "." + z.ID + ".md"
 	}
 	if z.Content == "" {
 		z.Content = emptyContent(z.Title)
@@ -104,7 +119,7 @@ func (r *zettelRepository) Create(ctx context.Context, z *model.Zettel) error {
 		z.Type = "fleet"
 	}
 
-	rows, err := r.DB.DB.NamedQueryContext(ctx, query, z)
+	rows, err := zr.DB.DB.NamedQueryContext(ctx, query, z)
 	if err != nil {
 		return err
 	}
@@ -119,7 +134,7 @@ func (r *zettelRepository) Create(ctx context.Context, z *model.Zettel) error {
 	return rows.Err()
 }
 
-func (r *zettelRepository) CreateBulk(ctx context.Context, zettels ...*model.Zettel) error {
+func (zr *zettelRepository) SaveBulk(ctx context.Context, zettels ...*model.Zettel) error {
 	query := `
   insert into zettel (id, title, content, type, path)
 	values (:id, :title, :content, :type, :path)
@@ -139,7 +154,7 @@ func (r *zettelRepository) CreateBulk(ctx context.Context, zettels ...*model.Zet
 			z.ID = isosec()
 		}
 		if z.Path == "" {
-			z.Path = config.FLEET_PATH + "/" + slug.Make(z.Title) + "." + z.ID + ".md"
+			z.Path = zr.config.FleetRoot + "/" + slug.Make(z.Title) + "." + z.ID + ".md"
 		}
 		if z.Content == "" {
 			z.Content = emptyContent(z.Title)
@@ -149,7 +164,7 @@ func (r *zettelRepository) CreateBulk(ctx context.Context, zettels ...*model.Zet
 		}
 	}
 
-	_, err := r.DB.DB.NamedExecContext(ctx, query, zettels)
+	_, err := zr.DB.DB.NamedExecContext(ctx, query, zettels)
 	if err != nil {
 		return err
 	}
@@ -157,7 +172,7 @@ func (r *zettelRepository) CreateBulk(ctx context.Context, zettels ...*model.Zet
 	return nil
 }
 
-func (z *zettelRepository) Link(ctx context.Context, z1 *model.Zettel, zettels []*model.Zettel) error {
+func (zr *zettelRepository) Link(ctx context.Context, z1 *model.Zettel, zettels []*model.Zettel) error {
 	query := `
 	insert into link (zettel_id, link_id) values (:zettel_id, :link_id)
 	on conflict (zettel_id, link_id) do nothing
@@ -170,13 +185,13 @@ func (z *zettelRepository) Link(ctx context.Context, z1 *model.Zettel, zettels [
 			To:   z2.ID,
 		}
 	}
-	_, err := z.DB.DB.NamedExecContext(ctx, query, links)
+	_, err := zr.DB.DB.NamedExecContext(ctx, query, links)
 	if err != nil {
 		return err
 	}
 
 	dbLinks := []*model.Zettel{}
-	err = z.DB.DB.SelectContext(ctx, &dbLinks, `select z2.* from link l join zettel z2 on l.link_id = z2.id where l.zettel_id = ?`, z1.ID)
+	err = zr.DB.DB.SelectContext(ctx, &dbLinks, `select z2.* from link l join zettel z2 on l.link_id = z2.id where l.zettel_id = ?`, z1.ID)
 	if err != nil {
 		return err
 	}
@@ -186,13 +201,13 @@ func (z *zettelRepository) Link(ctx context.Context, z1 *model.Zettel, zettels [
 	return nil
 }
 
-func (z *zettelRepository) LinkBulk(ctx context.Context, links ...*model.Link) error {
+func (zr *zettelRepository) LinkBulk(ctx context.Context, links ...*model.Link) error {
 	query := `
 	insert into link (zettel_id, link_id) values (:zettel_id, :link_id)
 	on conflict (zettel_id, link_id) do nothing
 	`
 
-	_, err := z.DB.DB.NamedExecContext(ctx, query, links)
+	_, err := zr.DB.DB.NamedExecContext(ctx, query, links)
 	if err != nil {
 		return err
 	}
@@ -200,7 +215,7 @@ func (z *zettelRepository) LinkBulk(ctx context.Context, links ...*model.Link) e
 	return nil
 }
 
-func (z *zettelRepository) Unlink(ctx context.Context, z1 *model.Zettel, zettels []*model.Zettel) error {
+func (zr *zettelRepository) Unlink(ctx context.Context, z1 *model.Zettel, zettels []*model.Zettel) error {
 	query := `
 	delete from link
 	where zettel_id = ? and link_id in (?)
@@ -220,15 +235,15 @@ func (z *zettelRepository) Unlink(ctx context.Context, z1 *model.Zettel, zettels
 
 	// sqlx.In returns queries with ? bindvars, we can rebind it for our
 	// database.
-	query = z.DB.DB.Rebind(query)
+	query = zr.DB.DB.Rebind(query)
 
-	_, err = z.DB.DB.ExecContext(ctx, query, args...)
+	_, err = zr.DB.DB.ExecContext(ctx, query, args...)
 	if err != nil {
 		return err
 	}
 
 	dbLinks := []*model.Zettel{}
-	err = z.DB.DB.SelectContext(ctx, &dbLinks, `select z2.* from link l join zettel z2 on l.link_id = z2.id where l.zettel_id = ?`, z1.ID)
+	err = zr.DB.DB.SelectContext(ctx, &dbLinks, `select z2.* from link l join zettel z2 on l.link_id = z2.id where l.zettel_id = ?`, z1.ID)
 	if err != nil {
 		return err
 	}
@@ -238,10 +253,10 @@ func (z *zettelRepository) Unlink(ctx context.Context, z1 *model.Zettel, zettels
 	return nil
 }
 
-func (z *zettelRepository) Remove(ctx context.Context, zettel *model.Zettel) error {
+func (zr *zettelRepository) Remove(ctx context.Context, zettel *model.Zettel) error {
 	query := `delete from zettel where id = :id`
 
-	res, err := z.DB.DB.NamedExecContext(ctx, query, zettel)
+	res, err := zr.DB.DB.NamedExecContext(ctx, query, zettel)
 	if err != nil {
 		return err
 	}
@@ -258,7 +273,7 @@ func (z *zettelRepository) Remove(ctx context.Context, zettel *model.Zettel) err
 	return nil
 }
 
-func (z *zettelRepository) RemoveBulk(ctx context.Context, zettels ...*model.Zettel) error {
+func (zr *zettelRepository) RemoveBulk(ctx context.Context, zettels ...*model.Zettel) error {
 	query := `delete from zettel where id in (?)`
 
 	// Convert slice of Zettel into a comma separated string of IDs.
@@ -275,9 +290,9 @@ func (z *zettelRepository) RemoveBulk(ctx context.Context, zettels ...*model.Zet
 
 	// sqlx.In returns queries with ? bindvars, we can rebind it for our
 	// database.
-	query = z.DB.DB.Rebind(query)
+	query = zr.DB.DB.Rebind(query)
 
-	_, err = z.DB.DB.ExecContext(ctx, query, args...)
+	_, err = zr.DB.DB.ExecContext(ctx, query, args...)
 	if err != nil {
 		return err
 	}
@@ -285,10 +300,10 @@ func (z *zettelRepository) RemoveBulk(ctx context.Context, zettels ...*model.Zet
 	return nil
 }
 
-func (z *zettelRepository) LastOpened(ctx context.Context, zettel *model.Zettel) error {
+func (zr *zettelRepository) LastOpened(ctx context.Context, zettel *model.Zettel) error {
 	query := `select * from zettel order by updated_at desc limit 1`
 
-	err := z.DB.DB.GetContext(ctx, zettel, query)
+	err := zr.DB.DB.GetContext(ctx, zettel, query)
 	if err != nil {
 		return err
 	}
@@ -296,11 +311,11 @@ func (z *zettelRepository) LastOpened(ctx context.Context, zettel *model.Zettel)
 	return nil
 }
 
-func (z *zettelRepository) History(ctx context.Context) ([]*model.Zettel, error) {
+func (zr *zettelRepository) History(ctx context.Context) ([]*model.Zettel, error) {
 	query := `select * from zettel order by updated_at desc limit 50`
 
 	zettels := []*model.Zettel{}
-	err := z.DB.DB.SelectContext(ctx, &zettels, query)
+	err := zr.DB.DB.SelectContext(ctx, &zettels, query)
 	if err != nil {
 		return nil, err
 	}
@@ -308,11 +323,11 @@ func (z *zettelRepository) History(ctx context.Context) ([]*model.Zettel, error)
 	return zettels, nil
 }
 
-func (z *zettelRepository) ListFleet(ctx context.Context) ([]*model.Zettel, error) {
+func (zr *zettelRepository) ListFleet(ctx context.Context) ([]*model.Zettel, error) {
 	query := `select * from zettel where type = 'fleet' order by updated_at desc`
 
 	zettels := []*model.Zettel{}
-	err := z.DB.DB.SelectContext(ctx, &zettels, query)
+	err := zr.DB.DB.SelectContext(ctx, &zettels, query)
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +335,40 @@ func (z *zettelRepository) ListFleet(ctx context.Context) ([]*model.Zettel, erro
 	return zettels, nil
 }
 
-func (z *zettelRepository) Backlinks(ctx context.Context, zet *model.Zettel) ([]*model.Zettel, error) {
+func (zr *zettelRepository) ListPermanent(ctx context.Context) ([]*model.Zettel, error) {
+	query := `select * from zettel where type = 'permanent' order by updated_at desc`
+
+	zettels := []*model.Zettel{}
+	err := zr.DB.DB.SelectContext(ctx, &zettels, query)
+	if err != nil {
+		return nil, err
+	}
+
+	return zettels, nil
+}
+
+func (zr *zettelRepository) ListAll(ctx context.Context) ([]*model.Zettel, error) {
+	query := `select * from zettel where type = 'fleet' or type = 'permanent' order by updated_at desc`
+
+	zettels := []*model.Zettel{}
+	err := zr.DB.DB.SelectContext(ctx, &zettels, query)
+	if err != nil {
+		return nil, err
+	}
+
+	return zettels, nil
+}
+
+func (zr *zettelRepository) Reset(ctx context.Context) error {
+	query := `delete from zettel returning *`
+	_, err := zr.DB.DB.ExecContext(ctx, query)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (zr *zettelRepository) Backlinks(ctx context.Context, zet *model.Zettel) ([]*model.Zettel, error) {
 	query := `
 	select z.*
 	from zettel z
@@ -337,7 +385,7 @@ func (z *zettelRepository) Backlinks(ctx context.Context, zet *model.Zettel) ([]
 		`
 	}
 
-	rows, err := z.DB.DB.NamedQueryContext(ctx, query, zet)
+	rows, err := zr.DB.DB.NamedQueryContext(ctx, query, zet)
 	if err != nil {
 		return nil, err
 	}
@@ -360,7 +408,7 @@ func (z *zettelRepository) Backlinks(ctx context.Context, zet *model.Zettel) ([]
 	return zettels, nil
 }
 
-func (z *zettelRepository) Search(ctx context.Context, query string) ([]*model.Zettel, error) {
+func (zr *zettelRepository) Search(ctx context.Context, query string) ([]*model.Zettel, error) {
 	q := `
 	select
 		z.id,
@@ -376,7 +424,7 @@ func (z *zettelRepository) Search(ctx context.Context, query string) ([]*model.Z
 	`
 
 	var zettels []*model.Zettel
-	err := z.DB.DB.SelectContext(ctx, &zettels, q, query)
+	err := zr.DB.DB.SelectContext(ctx, &zettels, q, query)
 	if err != nil {
 		return nil, err
 	}

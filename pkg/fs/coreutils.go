@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -87,7 +88,7 @@ func Mkdir(path string) error {
 	return nil
 }
 
-// List returns all files in a directory
+// List returns all files in a directory, same as `ls`
 func List(dir string) []string {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -148,6 +149,22 @@ func InsertLineAtIndex(path, newLine string, index int) error {
 	return ioutil.WriteFile(path, []byte(fileContent), 0644)
 }
 
+func Input(prompt string) string {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print(prompt)
+	text, _ := reader.ReadString('\n')
+	return text
+}
+
+func InputConfirm(prompt string) bool {
+	answer := Input(prompt + " (y/n): ")
+	answer = strings.ToLower(strings.TrimSpace(answer))
+	if answer == "y" || answer == "yes" {
+		return true
+	}
+	return false
+}
+
 // Open opens a file with the default open command from the user system
 func Open(path string) error {
 	cmd := fmt.Sprintf("open %s", path)
@@ -159,8 +176,8 @@ func Open(path string) error {
 	return nil
 }
 
-// OpenWithEditor opens a file with the default $EDITOR from the user system
-func OpenWithEditor(path string) error {
+// Editor opens a file with the default $EDITOR from the user system
+func Editor(path string) error {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		return errors.New("error: $EDITOR is not set")
