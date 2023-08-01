@@ -9,15 +9,17 @@ import (
 
 	"github.com/muxit-studio/test/assert"
 	"github.com/muxit-studio/test/require"
+	"github.com/odas0r/zet/internal/config"
 	"github.com/odas0r/zet/internal/model"
 	"github.com/odas0r/zet/internal/test/sqltest"
 )
 
+var cfg = config.New("/tmp/zet-cmd")
+
 func TestZettelRepository_Get(t *testing.T) {
 	t.Run("can get a zettel", func(t *testing.T) {
-		db := sqltest.CreateDatabase(t)
-
-		repo := NewZettelRepository(db)
+		db := sqltest.CreateDatabase(t, cfg)
+		repo := NewZettelRepository(db, cfg)
 
 		z1 := &model.Zettel{
 			ID:    "4",
@@ -53,9 +55,8 @@ func TestZettelRepository_Get(t *testing.T) {
 
 func TestZettelRepository_Create(t *testing.T) {
 	t.Run("can create a zettel", func(t *testing.T) {
-		db := sqltest.CreateDatabase(t)
-
-		repo := NewZettelRepository(db)
+		db := sqltest.CreateDatabase(t, cfg)
+		repo := NewZettelRepository(db, cfg)
 
 		zettel := &model.Zettel{
 			ID:    "1",
@@ -71,12 +72,11 @@ func TestZettelRepository_Create(t *testing.T) {
 		assert.Equal(t, zettel.Lines[1], "", "second line should be a empty line")
 		assert.Equal(t, zettel.Lines[2], "", "third line should be a empty line")
 		assert.Equal(t, zettel.Type, "fleet", "type should be fleet")
-		assert.Equal(t, zettel.Path, "/home/odas0r/github.com/odas0r/zet/fleet/testing-zettel."+zettel.ID+".md", "path should be correct")
+		assert.Equal(t, zettel.Path, "/tmp/zet-cmd/fleet/testing-zettel."+zettel.ID+".md", "path should be correct")
 	})
 	t.Run("can create bulk zettel", func(t *testing.T) {
-		db := sqltest.CreateDatabase(t)
-
-		repo := NewZettelRepository(db)
+		db := sqltest.CreateDatabase(t, cfg)
+		repo := NewZettelRepository(db, cfg)
 
 		z1 := &model.Zettel{
 			ID:    "1",
@@ -85,7 +85,7 @@ func TestZettelRepository_Create(t *testing.T) {
 Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
 tempor invidunt ut labore et dolore magna aliquyam
 `,
-			Path: "/home/odas0r/github.com/odas0r/zet/fleet/testing-zettel.1.md",
+			Path: "/tmp/zet-cmd/fleet/testing-zettel.1.md",
 			Type: "fleet",
 		}
 		z2 := &model.Zettel{
@@ -95,7 +95,7 @@ tempor invidunt ut labore et dolore magna aliquyam
 Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
 tempor invidunt ut labore et dolore magna aliquyam
 `,
-			Path: "/home/odas0r/github.com/odas0r/zet/fleet/testing-zettel.2.md",
+			Path: "/tmp/zet-cmd/fleet/testing-zettel.2.md",
 			Type: "fleet",
 		}
 		z3 := &model.Zettel{
@@ -105,7 +105,7 @@ tempor invidunt ut labore et dolore magna aliquyam
 Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
 tempor invidunt ut labore et dolore magna aliquyam
 `,
-			Path: "/home/odas0r/github.com/odas0r/zet/fleet/testing-zettel.3.md",
+			Path: "/tmp/zet-cmd/fleet/testing-zettel.3.md",
 			Type: "fleet",
 		}
 
@@ -123,30 +123,29 @@ tempor invidunt ut labore et dolore magna aliquyam
 
 		assert.Equal(t, z1.Title, "Testing Zettel", "z1 title should be correct")
 		assert.Equal(t, z1.Type, "fleet", "z1 type should be fleet")
-		assert.Equal(t, z1.Path, "/home/odas0r/github.com/odas0r/zet/fleet/testing-zettel."+z1.ID+".md", "z1 path should be correct")
+		assert.Equal(t, z1.Path, "/tmp/zet-cmd/fleet/testing-zettel."+z1.ID+".md", "z1 path should be correct")
 		assert.Equal(t, z1.Lines[0], "# Testing Zettel aiosjfoiasj foiaasfiajsof  oasjdf oi", "z1 first line should be correct")
 
 		updateZettel(t, repo, z2)
 
 		assert.Equal(t, z2.Title, "Testing Zettel", "z2 title should be correct")
 		assert.Equal(t, z2.Type, "fleet", "z2 type should be fleet")
-		assert.Equal(t, z2.Path, "/home/odas0r/github.com/odas0r/zet/fleet/testing-zettel."+z2.ID+".md", "z2 path should be correct")
+		assert.Equal(t, z2.Path, "/tmp/zet-cmd/fleet/testing-zettel."+z2.ID+".md", "z2 path should be correct")
 		assert.Equal(t, z2.Lines[0], "# Testing Zettel aiosjfoiasj foia", "z2 line 1 should be correct")
 
 		updateZettel(t, repo, z3)
 
 		assert.Equal(t, z3.Title, "Testing Zettel", "z3 title should be correct")
 		assert.Equal(t, z3.Type, "fleet", "z3 type should be fleet")
-		assert.Equal(t, z3.Path, "/home/odas0r/github.com/odas0r/zet/fleet/testing-zettel."+z3.ID+".md", "z3 path should be correct")
+		assert.Equal(t, z3.Path, "/tmp/zet-cmd/fleet/testing-zettel."+z3.ID+".md", "z3 path should be correct")
 		assert.Equal(t, z3.Lines[0], "# Testing Zettel aiosjfo", "z3 line 1 should be correct")
 	})
 }
 
 func TestZettelRepository_Link(t *testing.T) {
 	t.Run("can link different zettels", func(t *testing.T) {
-		db := sqltest.CreateDatabase(t)
-
-		repo := NewZettelRepository(db)
+		db := sqltest.CreateDatabase(t, cfg)
+		repo := NewZettelRepository(db, cfg)
 
 		z1 := &model.Zettel{
 			ID:    "1",
@@ -174,9 +173,8 @@ func TestZettelRepository_Link(t *testing.T) {
 	})
 
 	t.Run("can unlink different zettels", func(t *testing.T) {
-		db := sqltest.CreateDatabase(t)
-
-		repo := NewZettelRepository(db)
+		db := sqltest.CreateDatabase(t, cfg)
+		repo := NewZettelRepository(db, cfg)
 
 		z1 := &model.Zettel{
 			ID:    "1",
@@ -213,9 +211,8 @@ func TestZettelRepository_Link(t *testing.T) {
 	})
 
 	t.Run("can get backlinks", func(t *testing.T) {
-		db := sqltest.CreateDatabase(t)
-
-		repo := NewZettelRepository(db)
+		db := sqltest.CreateDatabase(t, cfg)
+		repo := NewZettelRepository(db, cfg)
 
 		z1 := &model.Zettel{
 			ID:    "1",
@@ -267,9 +264,8 @@ func TestZettelRepository_Link(t *testing.T) {
 	})
 
 	t.Run("can link bulk", func(t *testing.T) {
-		db := sqltest.CreateDatabase(t)
-
-		repo := NewZettelRepository(db)
+		db := sqltest.CreateDatabase(t, cfg)
+		repo := NewZettelRepository(db, cfg)
 
 		z1 := &model.Zettel{
 			ID:    "1",
@@ -318,9 +314,8 @@ func TestZettelRepository_Link(t *testing.T) {
 
 func TestZettelRepository_Remove(t *testing.T) {
 	t.Run("can remove a zettel", func(t *testing.T) {
-		db := sqltest.CreateDatabase(t)
-
-		repo := NewZettelRepository(db)
+		db := sqltest.CreateDatabase(t, cfg)
+		repo := NewZettelRepository(db, cfg)
 
 		z1 := &model.Zettel{
 			ID:    "1",
@@ -362,9 +357,8 @@ func TestZettelRepository_Remove(t *testing.T) {
 		assert.Equal(t, len(z3.Links), 0, "z3 should not link to z1")
 	})
 	t.Run("can remove a zettel and its links", func(t *testing.T) {
-		db := sqltest.CreateDatabase(t)
-
-		repo := NewZettelRepository(db)
+		db := sqltest.CreateDatabase(t, cfg)
+		repo := NewZettelRepository(db, cfg)
 
 		zettel := &model.Zettel{
 			ID:    "1",
@@ -380,9 +374,8 @@ func TestZettelRepository_Remove(t *testing.T) {
 		assert.Equal(t, err, sql.ErrNoRows, "zettel should not exist")
 	})
 	t.Run("can remove zettel in bulk", func(t *testing.T) {
-		db := sqltest.CreateDatabase(t)
-
-		repo := NewZettelRepository(db)
+		db := sqltest.CreateDatabase(t, cfg)
+		repo := NewZettelRepository(db, cfg)
 
 		zettels := []*model.Zettel{
 			{
@@ -418,8 +411,8 @@ func TestZettelRepository_Remove(t *testing.T) {
 
 func TestZettelRepository_List(t *testing.T) {
 	t.Run("can list all fleets", func(t *testing.T) {
-		db := sqltest.CreateDatabase(t)
-		repo := NewZettelRepository(db)
+		db := sqltest.CreateDatabase(t, cfg)
+		repo := NewZettelRepository(db, cfg)
 
 		err := repo.Reset(context.Background())
 		require.Equal(t, err, nil, "failed to reset database")
@@ -449,8 +442,8 @@ func TestZettelRepository_List(t *testing.T) {
 	})
 
 	t.Run("can list all permanent ", func(t *testing.T) {
-		db := sqltest.CreateDatabase(t)
-		repo := NewZettelRepository(db)
+		db := sqltest.CreateDatabase(t, cfg)
+		repo := NewZettelRepository(db, cfg)
 
 		err := repo.Reset(context.Background())
 		require.Equal(t, err, nil, "failed to reset database")
@@ -490,8 +483,8 @@ func TestZettelRepository_List(t *testing.T) {
 	})
 
 	t.Run("can list all zettels", func(t *testing.T) {
-		db := sqltest.CreateDatabase(t)
-		repo := NewZettelRepository(db)
+		db := sqltest.CreateDatabase(t, cfg)
+		repo := NewZettelRepository(db, cfg)
 
 		err := repo.Reset(context.Background())
 		require.Equal(t, err, nil, "failed to reset database")
@@ -533,9 +526,8 @@ func TestZettelRepository_List(t *testing.T) {
 
 func TestZettelRepository_Search(t *testing.T) {
 	t.Run("can search by query", func(t *testing.T) {
-		// db := sqltest.CreateDatabase(t)
-		//
-		// repo := NewZettelRepository(db)
+		// db := sqltest.CreateDatabase(t, cfg)
+		// repo := NewZettelRepository(db, cfg)
 		//
 		// z1 := &model.Zettel{
 		// 	ID:      "1",

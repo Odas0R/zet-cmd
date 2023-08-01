@@ -107,6 +107,10 @@ func Remove(path string) error {
 	return os.Remove(path)
 }
 
+func RemoveAll(path string) error {
+	return os.RemoveAll(path)
+}
+
 func Exists(path string) bool {
 	_, err := os.Stat(path)
 	return !errors.Is(err, fs.ErrNotExist)

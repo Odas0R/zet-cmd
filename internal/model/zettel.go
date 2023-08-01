@@ -115,6 +115,11 @@ func (z *Zettel) Write() error {
 	return fs.Write(z.Path, z.Content)
 }
 
+func (z *Zettel) WriteLine(line string) error {
+	z.Content += "\n" + line
+	return z.Write()
+}
+
 func (z *Zettel) Repair() error {
 	oldPath := z.Path
 

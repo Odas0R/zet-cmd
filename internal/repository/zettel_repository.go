@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -444,5 +445,10 @@ func emptyContent(title string) string {
 // isosec generates now timestamps like 20220605165935(0-99999) using the atomic
 // package to generate id's, avoiding collisions
 func isosec() string {
-	return fmt.Sprintf("%s%01d", time.Now().Format("20060102150405"), atomic.AddUint64(&counter, 1)%100000)
+	// if is in test mode, add counter to avoid collisions
+	if os.Getenv("TEST") == "true" {
+		return fmt.Sprintf("%s%01d", time.Now().Format("20060102150405"), atomic.AddUint64(&counter, 1)%100000)
+	}
+
+	return time.Now().Format("20060102150405")
 }
