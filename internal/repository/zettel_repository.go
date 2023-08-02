@@ -316,10 +316,11 @@ func (zr *zettelRepository) LastOpened(ctx context.Context, zettel *model.Zettel
 func (zr *zettelRepository) InsertHistory(ctx context.Context, zet *model.Zettel) error {
 	query := `
   insert into history (zettel_id)
-  values (:id) on conflict (zettel_id) do nothing
+  values (?) on conflict (zettel_id) do update
+  set updated_at = strftime('%Y-%m-%dT%H:%M:%fZ')
   `
 
-	_, err := zr.DB.DB.NamedExecContext(ctx, query, zet)
+	_, err := zr.DB.DB.ExecContext(ctx, query, zet.ID)
 	if err != nil {
 		return err
 	}
