@@ -36,6 +36,7 @@ type ZettelRepository interface {
 	Remove(ctx context.Context, zettel *model.Zettel) error
 	RemoveBulk(ctx context.Context, zettels ...*model.Zettel) error
 	LastOpened(ctx context.Context, zettel *model.Zettel) error
+	InsertHistory(ctx context.Context, zettel *model.Zettel) error
 	History(ctx context.Context) ([]*model.Zettel, error)
 	ListFleet(ctx context.Context) ([]*model.Zettel, error)
 	ListPermanent(ctx context.Context) ([]*model.Zettel, error)
@@ -312,8 +313,26 @@ func (zr *zettelRepository) LastOpened(ctx context.Context, zettel *model.Zettel
 	return nil
 }
 
+func (zr *zettelRepository) InsertHistory(ctx context.Context, zet *model.Zettel) error {
+	query := `
+  insert into history (zettel_id)
+  values (:id) on conflict (zettel_id) do nothing
+  `
+
+	_, err := zr.DB.DB.NamedExecContext(ctx, query, zet)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (zr *zettelRepository) History(ctx context.Context) ([]*model.Zettel, error) {
-	query := `select * from zettel order by updated_at desc limit 50`
+	query := `
+  select z.* from zettel as z
+  inner join history as h on z.id = h.zettel_id
+  order by h.updated_at desc limit 50
+  `
 
 	zettels := []*model.Zettel{}
 	err := zr.DB.DB.SelectContext(ctx, &zettels, query)
