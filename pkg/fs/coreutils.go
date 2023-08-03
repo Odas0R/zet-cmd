@@ -107,6 +107,7 @@ func Remove(path string) error {
 	return os.Remove(path)
 }
 
+// rm -r
 func RemoveAll(path string) error {
 	return os.RemoveAll(path)
 }

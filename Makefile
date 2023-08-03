@@ -2,6 +2,10 @@ build:
 	TEST=true go test -tags "fts5" ./... \
 	&& go build -tags "fts5" -o zet ./cmd/zet \
 		&& goose -dir ./migrations sqlite3 ./zettel.db up
+build-tmp:
+	TEST=true go test -tags "fts5" ./... \
+	&& go build -tags "fts5" -o zet ./cmd/zet \
+		&& goose -dir ./migrations sqlite3 /tmp/zet/zettel.db up
 watch:
 	find . -name '*.go' | entr -cs 'TEST=true go test -tags "fts5" ./... && go build -tags "fts5" -o zet ./cmd/zet'
 watch-verbose:
