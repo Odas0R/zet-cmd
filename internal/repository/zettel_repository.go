@@ -303,7 +303,11 @@ func (zr *zettelRepository) RemoveBulk(ctx context.Context, zettels ...*model.Ze
 }
 
 func (zr *zettelRepository) LastOpened(ctx context.Context, zettel *model.Zettel) error {
-	query := `select * from zettel order by updated_at desc limit 1`
+	query := `
+	select z.* from history as h
+	inner join zettel as z on h.zettel_id = z.id
+	order by h.updated_at desc limit 1
+	`
 
 	err := zr.DB.DB.GetContext(ctx, zettel, query)
 	if err != nil {

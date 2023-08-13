@@ -1,6 +1,5 @@
 build:
-	TEST=true go test -tags "fts5" ./... \
-	&& go build -tags "fts5" -o zet ./cmd/zet \
+	go build -tags "fts5" -o zet ./cmd/zet \
 		&& goose -dir ./migrations sqlite3 ./zettel.db up
 build-tmp:
 	TEST=true go test -tags "fts5" ./... \
