@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -31,7 +30,7 @@ func Create(path string) error {
 
 // Read retrieves content from a file
 func Read(filePath string) (string, error) {
-	bytes, err := ioutil.ReadFile(filePath)
+	bytes, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", err
 	}
@@ -90,7 +89,7 @@ func Mkdir(path string) error {
 
 // List returns all files in a directory, same as `ls`
 func List(dir string) []string {
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -132,7 +131,7 @@ func InsertLine(path, newLine string) error {
 	fileContent += newLine
 	fileContent += "\n"
 
-	return ioutil.WriteFile(path, []byte(fileContent), 0644)
+	return os.WriteFile(path, []byte(fileContent), 0644)
 }
 
 func InsertLineAtIndex(path, newLine string, index int) error {
@@ -151,7 +150,7 @@ func InsertLineAtIndex(path, newLine string, index int) error {
 		fileContent += "\n"
 	}
 
-	return ioutil.WriteFile(path, []byte(fileContent), 0644)
+	return os.WriteFile(path, []byte(fileContent), 0644)
 }
 
 func Input(prompt string) string {
