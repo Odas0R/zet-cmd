@@ -7,10 +7,6 @@ build-tmp:
 		&& goose -dir ./migrations sqlite3 /tmp/zet/zettel.db up
 watch:
 	find . -name '*.go' | entr -cs 'TEST=true go test -tags "fts5" ./... && go build -tags "fts5" -o zet ./cmd/zet'
-watch-verbose:
-	find . -name '*.go' | entr -cs 'TEST=true go test -v -tags "fts5" ./... && go build -tags "fts5" -o zet ./cmd/zet'
-db:
-	sqlite3 ./zettel.db
 new:
 	@read -p "Enter the name of the new migration: " name; \
 		goose -dir ./migrations sqlite3 ./zettel.db create $$name sql
@@ -21,7 +17,7 @@ down:
 status:
 	goose -dir ./migrations sqlite3 ./zettel.db status
 schema:
-	sqlite-utils schema zettel.db
+	sqlite3 ./zettel.db .schema
 test:
 	go test -tags "fts5" ./...
 
