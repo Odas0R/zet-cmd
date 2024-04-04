@@ -61,68 +61,69 @@ interface:
 ## Flux Sequence Diagram E.g: Creating, Linking & Stats
 
 ```mermaid
+
 sequenceDiagram
     participant User
     participant ZC as ZettelController
-    participant ZS as ZettelService
-    participant ZKS as ZettelkastenService
-    participant LS as LinkService
-    participant Z as Zettel
+    participant Z as Zettel (Model)
+    participant SM as Stats (Model)
     participant DB as Database
     participant FS as Filesystem
 
     User->>+ZC: Request (create Zettel)
-    ZC->>+ZS: Create Zettel
-    ZS->>+Z: Initialize
-    Z->>-ZS: Zettel Initialized
-    ZS->>DB: Save Zettel
-    ZS->>FS: Save File
-    ZS-->>-ZC: Zettel Created
+    ZC->>+Z: Create Zettel
+    Z->>+DB: Save Zettel
+    Z->>+FS: Save File
+    Z-->>-ZC: Zettel Created
     ZC-->>-User: Response (Zettel created)
 
     User->>+ZC: Request (view stats)
-    ZC->>+ZKS: Get Stats
-    ZKS->>+DB: Query Stats
-    DB-->>-ZKS: Stats Result
-    ZKS-->>-ZC: Stats Data
+    ZC->>+SM: Get Stats
+    SM->>+DB: Query Stats
+    DB-->>-SM: Stats Result
+    SM-->>-ZC: Stats Data
     ZC-->>-User: Response (Stats)
 
     User->>+ZC: Request (link Zettels)
-    ZC->>+LS: Create Link
-    LS->>DB: Update Links
-    LS-->>-ZC: Link Created
+    ZC->>+Z: Create Link
+    Z->>DB: Update Links
+    Z-->>-ZC: Link Created
     ZC-->>-User: Response (Zettels linked)
+
 ```
 
 ## Flux Diagram MVC E.g: Creating, Linking & Stats
 
 ```mermaid
+
 flowchart TD
     User("User") --> View{"View\n(User Interface)"}
     View --> Controller{"Controller\n(ZettelController, etc.)"}
-    Controller -->|Create/Update/Delete| Service(("Services\n(ZettelService, LinkService, etc.)"))
-    Service --> Model(("Model\n(Zettel)"))
-    Service -->|Query| DB[(Database)]
-    Service -->|Read/Write| FS[(Filesystem)]
-    Model --> DB
-    Model --> FS
-    DB --> Model
-    FS --> Model
-    Model -->|Data Response| Service
-    Service -->|Logic Processed| Controller
+
+    subgraph ModelLayer [" "]
+    direction LR
+    ZM("Model\n(Zettel)") -.- SM("Model\n(Stats)")
+    end
+
+    Controller -->|Create/Update/Delete| ModelLayer
+    Controller -->|Get Stats| ModelLayer
+
+    ModelLayer -->|Query| DB[(Database)]
+    ModelLayer -->|Read/Write| FS[(Filesystem)]
+
+    DB --> ModelLayer
+    FS --> ModelLayer
+
+    ModelLayer -->|Data Response| Controller
+
     Controller -->|Render| View
     View -->|Display| User
 
-    Controller -->|Get Stats| ZKS(("ZettelkastenService"))
-    ZKS -->|Query| DB
-    DB -->|Stats Result| ZKS
-    ZKS -->|Processed Stats| Controller
-    Controller -->|Render Stats| View
-
-    Controller -.->|Sync| ZS(("ZettelService"))
-    ZS -.->|Filesystem Check| FS
+    Controller -.->|Sync| ModelLayer
+    ModelLayer -.->|Filesystem Check| FS
     FS -.->|Update| DB
-    DB -.->|Sync Complete| ZS
-    ZS -.->|Notify| Controller
+    DB -.->|Sync Complete| ModelLayer
+    ModelLayer -.->|Notify| Controller
     Controller -.->|Update View| View
+
 ```
