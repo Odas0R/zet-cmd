@@ -25,25 +25,6 @@ type Zettel struct {
 }
 ```
 
-## Services
-
-- `ZettelService`: Manages CRUD operations for Zettels. Responsibilities
-  include creating, updating, reading, and deleting Zettels, as well as
-  managing the filesystem interactions for zettel content.
-
-- `ZettelkastenService`: Facilitates the retrieval of permanent notes, fleeting
-  notes, statistics, progress, health...
-
-- `LinkService`: Handles the linking between Zettels, managing both direct
-  links and backlinks. This service is crucial for maintaining the
-  interconnectedness of the Zettelkasten, enabling easy navigation and
-  discovery.
-
-- `SearchService`: Facilitates full-text search and other query functionalities
-  across the Zettelkasten. It leverages the SQLite FTS5 extension for efficient
-  search operations, allowing users to quickly find zettels by content, title,
-  or tags.
-
 ## Controllers
 
 - `ZettelController`: Endpoint for Zettel management operations, interfacing
