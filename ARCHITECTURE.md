@@ -61,41 +61,62 @@ interface:
 ## Flux Sequence Diagram E.g: Creating, Linking & Stats
 
 ```mermaid
-
 sequenceDiagram
     participant User
+    participant VC as ViewController
     participant ZC as ZettelController
     participant Z as Zettel (Model)
     participant SM as Stats (Model)
-    participant DB as Database
-    participant FS as Filesystem
 
     User->>+ZC: Request (create Zettel)
     ZC->>+Z: Create Zettel
-    Z->>+DB: Save Zettel
-    Z->>+FS: Save File
     Z-->>-ZC: Zettel Created
     ZC-->>-User: Response (Zettel created)
 
     User->>+ZC: Request (view stats)
     ZC->>+SM: Get Stats
-    SM->>+DB: Query Stats
-    DB-->>-SM: Stats Result
     SM-->>-ZC: Stats Data
     ZC-->>-User: Response (Stats)
 
     User->>+ZC: Request (link Zettels)
     ZC->>+Z: Create Link
-    Z->>DB: Update Links
     Z-->>-ZC: Link Created
     ZC-->>-User: Response (Zettels linked)
 
+    alt Create Zettel
+        User->>+VC: Request Create Zettel Page
+        VC-->>-User: Show Create Zettel Form
+        User->>+VC: Submit Create Zettel
+        VC->>+ZC: Forward Create Zettel
+        deactivate VC
+        ZC->>+Z: Create Zettel
+        Z->>SM: Increment Creation Stats
+        loop Update Stats
+            SM->>SM: Update Stats
+        end
+        Z-->>-ZC: Zettel Created
+        activate VC
+        ZC-->>VC: Update View
+        VC-->>-User: Display Zettel Created
+    end
+
+    alt View Stats
+        User->>+VC: Request Stats Page
+        VC-->>-User: Show Stats Request Form
+        User->>+VC: Submit Stats Request
+        VC->>+ZC: Fetch Stats
+        deactivate VC
+        ZC->>+SM: Get Stats
+        SM-->>-ZC: Stats Data
+        activate VC
+        ZC-->>VC: Update View with Stats
+        VC-->>-User: Display Stats
+    end
 ```
 
 ## Flux Diagram MVC E.g: Creating, Linking & Stats
 
 ```mermaid
-
 flowchart TD
     User("User") --> View{"View\n(User Interface)"}
     View --> Controller{"Controller\n(ZettelController, etc.)"}
@@ -108,22 +129,12 @@ flowchart TD
     Controller -->|Create/Update/Delete| ModelLayer
     Controller -->|Get Stats| ModelLayer
 
-    ModelLayer -->|Query| DB[(Database)]
-    ModelLayer -->|Read/Write| FS[(Filesystem)]
-
-    DB --> ModelLayer
-    FS --> ModelLayer
-
     ModelLayer -->|Data Response| Controller
 
     Controller -->|Render| View
     View -->|Display| User
 
-    Controller -.->|Sync| ModelLayer
-    ModelLayer -.->|Filesystem Check| FS
-    FS -.->|Update| DB
-    DB -.->|Sync Complete| ModelLayer
+    Controller -.->|Sync Operations| ModelLayer
     ModelLayer -.->|Notify| Controller
     Controller -.->|Update View| View
-
 ```
