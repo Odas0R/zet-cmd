@@ -27,20 +27,18 @@ type Zettel struct {
 
 ## Controllers
 
-- `ZettelController`: Endpoint for Zettel management operations, interfacing
-  with `ZettelService` to process user requests like creation, update, and
-  deletion of zettels.
+- `ZettelController`: Endpoint for Zettel management operations to process user
+  requests like creation, update, and deletion of zettels.
 
 - `LinkController`: Facilitates operations related to linking zettels,
   including creating and removing links, and querying for backlinks or all
   links related to a zettel.
 
-- `SearchController`: Provides endpoints for searching the Zettelkasten,
-  interfacing with `SearchService` to execute and return search results.
+- `SearchController`: Provides endpoints for searching the Zettelkasten, return
+  search results.
 
 - `HistoryController`: Offers access to a user's history within the
-  Zettelkasten, such as recently edited or viewed zettels, leveraging the
-  `HistoryService`.
+  Zettelkasten, such as recently edited or viewed zettels
 
 - `ViewController`: Handles server-side rendering (SSR) of pages, presenting
   the user interface for interacting with the Zettelkasten. This includes
