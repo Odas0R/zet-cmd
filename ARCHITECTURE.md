@@ -186,17 +186,17 @@ flowchart TD
     SM("Stats\nModel") -.->|Notify Stats Update| C
     end
 
-    ZC -.->|Render Response| LV
-    ZC -.->|Render Response| DV
-    ZC -.->|Render Response| EV
-    SC -.->|Render Response| SV
-    HC -.->|Render Response| HV
+    ZC -.->|Render List Response| LV
+    ZC -.->|Render Detail Response| DV
+    ZC -.->|Render Edit Response| EV
+    SC -.->|Render Search Results| SV
+    HC -.->|Render History Data| HV
 
-    LV -->|Display| User
-    DV -->|Display| User
-    EV -->|Display| User
-    SV -->|Display| User
-    HV -->|Display| User
+    LV -->|Show Zettels List| User
+    DV -->|Show Zettel Details| User
+    EV -->|Show Zettel Edit Form| User
+    SV -->|Show Search Results| User
+    HV -->|Show Viewed History| User
 
     ZC -->|Create/Update/Delete Zettel| Z
     LC -->|Manage Links| L
@@ -207,6 +207,7 @@ flowchart TD
     HC -->|Update Stats on History Access| SM
     SC -->|Update Stats on Search| SM
 
+
 ```
 
 ### Notes
@@ -215,3 +216,8 @@ It's important to note that the `Flux Sequence Diagram E.g: Creating, Linking &
 Stats` is an example, and the models are not 100% complete since in development
 implementations might change. This is an initial sketch and overview of the
 `zet-cmd` architecture.
+
+### Repository
+
+1. <https://github.com/Odas0R/zet-cmd>
+2. <https://github.com/Odas0R/zet-cmd/blob/main/ARCHITECTURE.md>
