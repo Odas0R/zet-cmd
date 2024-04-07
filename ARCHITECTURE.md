@@ -4,26 +4,39 @@ Documenting the `zet-cmd` architecture.
 
 ## Models
 
+#### Zettel Model
+
 `Zettel` is the central entity , representing individual notes or "zettels".
 The model includes essential fields for identifying and managing zettels, as
 well as auxiliary fields to enhance functionality, like Lines for content
 manipulation and Links for inter-zettel connections.
 
-```go
-type Zettel struct {
-	ID        string `db:"id"`
-	Title     string `db:"title"`
-	Content   string `db:"content"`
-	Path      string `db:"path"`
-	Type      string `db:"type"`
-	CreatedAt Time   `db:"created_at"`
-	UpdatedAt Time   `db:"updated_at"`
+#### Link Model
 
-	// Auxiliary fields (not stored in the database)
-	Lines []string
-	Links []*Zettel
-}
-```
+The Link model facilitates the connections between zettels, enabling the
+creation of a network of related notes. Each link associates two zettels,
+indicating a directional or bidirectional relationship.
+
+#### Search Model
+
+The Search model manages the logic and data involved in searching the
+Zettelkasten. This model does not correspond directly to a database table but
+encapsulates the criteria and algorithms for searching through zettels based on
+various parameters.
+
+#### History Model
+
+The History model tracks the user's interaction history within the system, such
+as recently viewed or edited zettels. This model helps in providing users with
+a personalized experience by enabling quick access to previously interacted
+zettels.
+
+#### Stats Model
+
+The Stats model collects and stores statistics related to various operations
+within the system, such as the number of zettels created, links made, searches
+performed, and historical interactions. It serves as a basis for analyzing the
+usage patterns and efficiency of the Zettelkasten.
 
 ## Controllers
 
@@ -49,14 +62,31 @@ type Zettel struct {
 Views are the SSR templates or components that render the Zettelkasten's user
 interface:
 
-1. List view for search results or zettel collections (e.g., backlog, history).
-2. Detail view for individual zettels, displaying content, metadata, and
-   links/backlinks.
-3. Edit view for creating or updating zettels.
-4. Navigation and search interfaces, providing easy access to various parts of
-   the Zettelkasten.
+1. `List View`: Displays search results or collections of zettels, such as
+   backlogs or history lists. This view is essential for users to browse
+   through multiple zettels efficiently.
 
-## Flux Sequence Diagram E.g: Creating, Linking & Stats
+2. `Detail View`: Shows individual zettels in detail, including content, metadata
+   (like creation and update times), and links/backlinks. This view is crucial
+   for reading and understanding the content of a zettel.
+
+3. `Edit View`: Provides a form or interface for creating new zettels or updating
+   existing ones. This view is fundamental for content creation and editing
+   within the Zettelkasten.
+
+4. `Navigation and Search Interface`: Offers a comprehensive navigation bar or
+   search box, enabling users to easily move between different parts of the
+   Zettelkasten or to find specific zettels. This interface enhances the
+   usability and accessibility of the system.
+
+## Interaction Diagrams
+
+### Flux Sequence Diagram E.g: Creating, Linking & Stats
+
+This sequence diagram illustrates the process flow for creating zettels,
+linking them, and viewing stats. It highlights the interactions between the
+user, controllers, models, and views, showcasing the dynamic nature of the
+Zettelkasten's operations
 
 ```mermaid
 sequenceDiagram
@@ -112,27 +142,76 @@ sequenceDiagram
     end
 ```
 
-## Flux Diagram MVC E.g: Creating, Linking & Stats
+### Flux Diagram MVC
+
+Showcases the zet-cmd system's architecture, detailing the flow from user
+interactions through views—like List, Detail, and Edit Views—to controllers and
+models for operations such as zettel creation, linking, and stats viewing. It
+highlights the system's dynamic interaction between user requests, data
+processing, and the subsequent update of views, illustrating the seamless
+integration of components for efficient data management and responsive user
+experience.
 
 ```mermaid
 flowchart TD
-    User("User") --> View{"View\n(User Interface)"}
-    View --> Controller{"Controller\n(ZettelController, etc.)"}
+    User("User") -->|Interact| V{"Views"}
 
-    subgraph ModelLayer [" "]
-    direction LR
-    ZM("Model\n(Zettel)") -.- SM("Model\n(Stats)")
+    subgraph ViewLayer
+    V --> LV("List View")
+    V --> DV("Detail View")
+    V --> EV("Edit View")
+    V --> SV("Search Interface")
+    V --> HV("History View")
     end
 
-    Controller -->|Create/Update/Delete| ModelLayer
-    Controller -->|Get Stats| ModelLayer
+    subgraph Controllers
+    C["Controllers\n(ZettelController, LinkController, \nSearchController, HistoryController)"] --> ZC("ZettelController")
+    C --> LC("LinkController")
+    C --> SC("SearchController")
+    C --> HC("HistoryController")
+    end
 
-    ModelLayer -->|Data Response| Controller
+    LV -->|Request List| ZC
+    DV -->|Request Detail| ZC
+    EV -->|Create/Update Request| ZC
+    SV -->|Search Request| SC
+    HV -->|History Request| HC
 
-    Controller -->|Render| View
-    View -->|Display| User
+    subgraph Models
+    direction LR
+    Z("Zettel\nModel") -->|Notify| ZC
+    L("Link\nModel") -->|Notify| LC
+    S("Search\nModel") -->|Notify| SC
+    H("History\nModel") -->|Notify| HC
+    SM("Stats\nModel") -.->|Notify Stats Update| C
+    end
 
-    Controller -.->|Sync Operations| ModelLayer
-    ModelLayer -.->|Notify| Controller
-    Controller -.->|Update View| View
+    ZC -.->|Render Response| LV
+    ZC -.->|Render Response| DV
+    ZC -.->|Render Response| EV
+    SC -.->|Render Response| SV
+    HC -.->|Render Response| HV
+
+    LV -->|Display| User
+    DV -->|Display| User
+    EV -->|Display| User
+    SV -->|Display| User
+    HV -->|Display| User
+
+    ZC -->|Create/Update/Delete Zettel| Z
+    LC -->|Manage Links| L
+    SC -->|Search Operation| S
+    HC -->|Access History| H
+    ZC -->|Increment Stats on Create| SM
+    LC -->|Update Stats on Link| SM
+    HC -->|Update Stats on History Access| SM
+    SC -->|Update Stats on Search| SM
+
 ```
+
+### Notes
+
+It's important to note that the `Flux Sequence Diagram E.g: Creating, Linking &
+Stats` is an example, and the models are not 100% complete since in development
+implementations might change. This is an initial sketch and overview of the
+`zet-cmd` architecture.
