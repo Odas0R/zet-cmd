@@ -21,6 +21,6 @@ status:
 schema:
 	sqlite3 ./zettel.db .schema
 test:
-	go test -tags "fts5" ./...
+	TEST=true go test -tags "fts5" ./...
 
 .PHONY: build test new up down status schema watch

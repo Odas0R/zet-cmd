@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"database/sql"
 	"strings"
 	"testing"
 
@@ -364,7 +363,7 @@ func TestZettelRepository_Remove(t *testing.T) {
 		require.Equal(t, err, nil, "failed to remove zettel")
 
 		err = repo.Get(context.Background(), zettel)
-		assert.Equal(t, err, sql.ErrNoRows, "zettel should not exist")
+		assert.Equal(t, err, ErrZettelNotFound, "zettel should not exist")
 	})
 
 	t.Run("can remove zettel in bulk", func(t *testing.T) {
@@ -393,13 +392,13 @@ func TestZettelRepository_Remove(t *testing.T) {
 		require.Equal(t, err, nil, "failed to remove zettel in bulk")
 
 		err = repo.Get(context.Background(), zettels[0])
-		assert.Equal(t, err, sql.ErrNoRows, "zettel should not exist")
+		assert.Equal(t, err, ErrZettelNotFound, "zettel should not exist")
 
 		err = repo.Get(context.Background(), zettels[1])
-		assert.Equal(t, err, sql.ErrNoRows, "zettel should not exist")
+		assert.Equal(t, err, ErrZettelNotFound, "zettel should not exist")
 
 		err = repo.Get(context.Background(), zettels[2])
-		assert.Equal(t, err, sql.ErrNoRows, "zettel should not exist")
+		assert.Equal(t, err, ErrZettelNotFound, "zettel should not exist")
 	})
 }
 

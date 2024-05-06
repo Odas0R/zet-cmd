@@ -19,7 +19,6 @@ integrate or extend the existing functionality.
 - ✅ **Search**: Utilize SQLite's FTS5 extension for powerful full-text search capabilities.
 - ✅ **Linking and Backlinking**: Connect your thoughts and navigate through them intuitively.
 - ✅ **History and Backlog**: Keep track of your most recent and overall zettel landscape.
-- ✅ **Server Mode**: A web view to visually navigate and search through your zettelkasten.
 - ✅ **Sync and Save**: Keep your filesystem and database in harmony, with automatic fixes on the go.
 
 ## Usage
