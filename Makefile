@@ -14,6 +14,8 @@ up:
 	goose -dir ./migrations sqlite3 ./zettel.db up-by-one
 down:
 	goose -dir ./migrations sqlite3 ./zettel.db down
+redo:
+	goose -dir ./migrations sqlite3 ./zettel.db redo
 status:
 	goose -dir ./migrations sqlite3 ./zettel.db status
 schema:

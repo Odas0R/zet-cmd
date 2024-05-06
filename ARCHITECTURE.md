@@ -1,85 +1,11 @@
-# Architecture
+# Proposta Equipa Cmd-Zet
 
-Documenting the `zet-cmd` architecture.
+## Lista de Inputs e Outputs de Formas Aleatórias
 
-## Models
-
-#### Zettel Model
-
-`Zettel` is the central entity , representing individual notes or "zettels".
-The model includes essential fields for identifying and managing zettels, as
-well as auxiliary fields to enhance functionality, like Lines for content
-manipulation and Links for inter-zettel connections.
-
-#### Link Model
-
-The Link model facilitates the connections between zettels, enabling the
-creation of a network of related notes. Each link associates two zettels,
-indicating a directional or bidirectional relationship.
-
-#### Search Model
-
-The Search model manages the logic and data involved in searching the
-Zettelkasten. This model does not correspond directly to a database table but
-encapsulates the criteria and algorithms for searching through zettels based on
-various parameters.
-
-#### History Model
-
-The History model tracks the user's interaction history within the system, such
-as recently viewed or edited zettels. This model helps in providing users with
-a personalized experience by enabling quick access to previously interacted
-zettels.
-
-#### Stats Model
-
-The Stats model collects and stores statistics related to various operations
-within the system, such as the number of zettels created, links made, searches
-performed, and historical interactions. It serves as a basis for analyzing the
-usage patterns and efficiency of the Zettelkasten.
-
-## Controllers
-
-- `ZettelController`: Endpoint for Zettel management operations to process user
-  requests like creation, update, and deletion of zettels.
-
-- `LinkController`: Facilitates operations related to linking zettels,
-  including creating and removing links, and querying for backlinks or all
-  links related to a zettel.
-
-- `SearchController`: Provides endpoints for searching the Zettelkasten, return
-  search results.
-
-- `HistoryController`: Offers access to a user's history within the
-  Zettelkasten, such as recently edited or viewed zettels
-
-- `ViewController`: Handles server-side rendering (SSR) of pages, presenting
-  the user interface for interacting with the Zettelkasten. This includes
-  rendering views for search results, zettel content, and navigation.
-
-## Views
-
-Views are the SSR templates or components that render the Zettelkasten's user
-interface:
-
-1. `List View`: Displays search results or collections of zettels, such as
-   backlogs or history lists. This view is essential for users to browse
-   through multiple zettels efficiently.
-
-2. `Detail View`: Shows individual zettels in detail, including content, metadata
-   (like creation and update times), and links/backlinks. This view is crucial
-   for reading and understanding the content of a zettel.
-
-3. `Edit View`: Provides a form or interface for creating new zettels or updating
-   existing ones. This view is fundamental for content creation and editing
-   within the Zettelkasten.
-
-4. `Navigation and Search Interface`: Offers a comprehensive navigation bar or
-   search box, enabling users to easily move between different parts of the
-   Zettelkasten or to find specific zettels. This interface enhances the
-   usability and accessibility of the system.
-
-## Interaction Diagrams
+|              | Inputs | Outputs |
+| ------------ | ------ | ------- |
+| De controlo  |        |         |
+| Algoritmicos |        |         |
 
 ### Flux Sequence Diagram E.g: Creating, Linking & Stats
 
@@ -90,56 +16,106 @@ Zettelkasten's operations
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant VC as ViewController
-    participant ZC as ZettelController
-    participant Z as Zettel (Model)
-    participant SM as Stats (Model)
+    participant Utilizador
+    participant VC as ControladorView
+    participant ZC as ControladorZettel
+    participant Z as Zettel (Modelo)
+    participant L as Link (Modelo)
+    participant SM as Estatísticas (Modelo)
+    participant H as Histórico (Modelo)
+    participant P as Pesquisa (Modelo)
 
-    User->>+ZC: Request (create Zettel)
-    ZC->>+Z: Create Zettel
-    Z-->>-ZC: Zettel Created
-    ZC-->>-User: Response (Zettel created)
+    # Criar Zettel
+    Utilizador->>+ZC: Solicitar (criar Zettel)
+    activate VC
+    VC->>+Utilizador: Mostrar Formulário Criar Zettel
+    deactivate VC
+    Utilizador->>+VC: Submeter Criar Zettel com Título & Conteúdo
+    activate VC
+    VC->>+ZC: Encaminhar Criar Zettel
+    deactivate VC
+    ZC->>+Z: Criar Zettel
+    Z->>SM: Incrementar Estatísticas Criação
+    Z-->>-ZC: Zettel Criado
+    activate VC
+    ZC-->>VC: Atualizar View com Zettel
+    VC-->>-Utilizador: Mostrar Zettel Criado
+    deactivate VC
 
-    User->>+ZC: Request (view stats)
-    ZC->>+SM: Get Stats
-    SM-->>-ZC: Stats Data
-    ZC-->>-User: Response (Stats)
+    # Visualizar Estatísticas
+    Utilizador->>+ZC: Solicitar (ver estatísticas)
+    ZC->>+SM: Obter Estatísticas
+    SM-->>-ZC: Dados Estatísticas
+    ZC-->>-Utilizador: Resposta (Estatísticas)
 
-    User->>+ZC: Request (link Zettels)
-    ZC->>+Z: Create Link
-    Z-->>-ZC: Link Created
-    ZC-->>-User: Response (Zettels linked)
+    # Criar Link
+    Utilizador->>+ZC: Solicitar (ligar Zettels)
+    activate VC
+    VC->>+Utilizador: Selecionar Zettels para Ligar
+    deactivate VC
+    Utilizador->>+VC: Submeter Seleção Link (IDs Zettel)
+    activate VC
+    VC->>+ZC: Encaminhar Ligar Zettels
+    deactivate VC
+    ZC->>+Z: Criar Link
+    Z-->>-ZC: Link Criado
+    ZC-->>-Utilizador: Resposta (Zettels ligados)
 
-    alt Create Zettel
-        User->>+VC: Request Create Zettel Page
-        VC-->>-User: Show Create Zettel Form
-        User->>+VC: Submit Create Zettel
-        VC->>+ZC: Forward Create Zettel
-        deactivate VC
-        ZC->>+Z: Create Zettel
-        Z->>SM: Increment Creation Stats
-        loop Update Stats
-            SM->>SM: Update Stats
-        end
-        Z-->>-ZC: Zettel Created
-        activate VC
-        ZC-->>VC: Update View
-        VC-->>-User: Display Zettel Created
-    end
+    # Visualizar Histórico
+    Utilizador->>+ZC: Solicitar (ver histórico)
+    ZC->>+H: Obter Histórico
+    H-->>-ZC: Dados Histórico
+    ZC-->>-Utilizador: Resposta (Histórico)
 
-    alt View Stats
-        User->>+VC: Request Stats Page
-        VC-->>-User: Show Stats Request Form
-        User->>+VC: Submit Stats Request
-        VC->>+ZC: Fetch Stats
-        deactivate VC
-        ZC->>+SM: Get Stats
-        SM-->>-ZC: Stats Data
-        activate VC
-        ZC-->>VC: Update View with Stats
-        VC-->>-User: Display Stats
-    end
+    # Pesquisar
+    Utilizador->>+ZC: Solicitar (pesquisar Zettels)
+    activate VC
+    VC->>+Utilizador: Mostrar Barra de Pesquisa
+    deactivate VC
+    Utilizador->>+VC: Submeter Consulta de Pesquisa
+    activate VC
+    VC->>+ZC: Encaminhar Consulta de Pesquisa
+    deactivate VC
+    ZC->>+P: Realizar Pesquisa
+    P-->>-ZC: Resultados da Pesquisa
+    ZC-->>-Utilizador: Resposta (Resultados da Pesquisa)
+
+    # Editar Zettel
+    Utilizador->>+ZC: Solicitar (editar Zettel)
+    activate VC
+    VC->>+Utilizador: Mostrar Formulário Editar Zettel
+    deactivate VC
+    Utilizador->>+VC: Submeter Editar Zettel com Alterações
+    activate VC
+    VC->>+ZC: Encaminhar Editar Zettel
+    deactivate VC
+    ZC->>+Z: Editar Zettel
+    Z->>SM: Atualizar Estatísticas Modificação
+    Z-->>-ZC: Zettel Editado
+    activate VC
+    ZC-->>VC: Atualizar View com Zettel
+    VC-->>-Utilizador: Mostrar Zettel Editado
+    deactivate VC
+
+    # Remover Zettel
+    Utilizador->>+ZC: Solicitar (remover Zettel)
+    activate VC
+    VC->>+Utilizador: Confirmar Remoção Zettel
+    deactivate VC
+    Utilizador->>+VC: Submeter Confirmação Remoção
+    activate VC
+    VC->>+ZC: Encaminhar Remover Zettel
+    deactivate VC
+    ZC->>+Z: Remover Zettel
+    Z->>SM: Atualizar Estatísticas Remoção
+    Z-->>-ZC: Zettel Removido
+    activate VC
+    ZC-->>VC: Atualizar View
+    VC-->>-Utilizador: Mostrar Zettel Removido
+    deactivate VC
+
+
+
 ```
 
 ### Flux Diagram MVC

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -50,6 +51,7 @@ type ZettelRepository interface {
 type zettelRepository struct {
 	config *config.Config
 	DB     *database.Database
+	mu     sync.Mutex
 }
 
 func NewZettelRepository(db *database.Database, config *config.Config) ZettelRepository {
@@ -63,31 +65,54 @@ func (zr *zettelRepository) Config() *config.Config {
 	return zr.config
 }
 
-func (zr *zettelRepository) Get(ctx context.Context, zettel *model.Zettel) error {
+func (zr *zettelRepository) Get(c context.Context, zettel *model.Zettel) error {
+	ctx, cancel := context.WithTimeout(c, 5*time.Second)
+	defer cancel()
+
 	var query string
 
 	if zettel.ID != "" {
-		query = `select * from zettel where id = ?`
+		query = `select * from zettel where id = :id`
 	} else if zettel.Path != "" {
-		query = `select * from zettel where path = ?`
+		query = `select * from zettel where path = :path`
+	} else if zettel.Slug != "" {
+		query = `select * from zettel where slug = :slug`
 	} else {
-		return errors.New("error: zettel id or path must be provided")
+		return errors.New("error: zettel id, path, or slug must be provided")
 	}
 
-	err := zr.DB.DB.GetContext(ctx, zettel, query, zettel.ID)
+	// Execute the query with named parameters
+	rows, err := zr.DB.DB.NamedQueryContext(ctx, query, zettel)
 	if err != nil {
 		return err
 	}
 
-	links := []*model.Zettel{}
+	// Scan the result
+	if rows.Next() {
+		if err := rows.StructScan(zettel); err != nil {
+			return err
+		}
+	} else {
+		return ErrZettelNotFound
+	}
+
+	err = rows.Close()
+	if err != nil {
+		return err
+	}
+
+	// Get links
 	query = `
-	SELECT z2.* FROM link l JOIN zettel z2 ON l.link_id = z2.id WHERE l.zettel_id = ?
-	`
+        select z2.*
+        from link l
+        join zettel z2 on l.link_id = z2.id
+        where l.zettel_id = ?
+    `
+	links := []*model.Zettel{}
 	err = zr.DB.DB.SelectContext(ctx, &links, query, zettel.ID)
 	if err != nil {
 		return err
 	}
-
 	zettel.Links = links
 	zettel.Lines = strings.Split(zettel.Content, "\n")
 
@@ -96,22 +121,27 @@ func (zr *zettelRepository) Get(ctx context.Context, zettel *model.Zettel) error
 
 func (zr *zettelRepository) Save(ctx context.Context, z *model.Zettel) error {
 	query := `
-  insert into zettel (id, title, content, type, path)
-	values (:id, :title, :content, :type, :path)
+  insert into zettel (id, title, slug, content, type, path)
+	values (:id, :title, :slug, :content, :type, :path)
 	on conflict (id) do
-	update set title = excluded.title, content = excluded.content, type = excluded.type, path = excluded.path
-  returning id, title, content, type, path, created_at, updated_at
+	update set title = excluded.title, slug = excluded.slug, content = excluded.content, type = excluded.type, path = excluded.path
+  returning id, title, slug, content, type, path, created_at, updated_at
   `
 
 	// Set the zettel default values
 	if z.Title == "" {
 		return errors.New("error: title cannot be empty")
 	}
+	if z.Slug == "" {
+		z.Slug = slug.Make(z.Title)
+	}
 	if z.ID == "" {
+		zr.mu.Lock()
 		z.ID = isosec()
+		zr.mu.Unlock()
 	}
 	if z.Path == "" {
-		z.Path = zr.config.FleetRoot + "/" + slug.Make(z.Title) + "." + z.ID + ".md"
+		z.Path = zr.config.FleetRoot + "/" + z.ID + ".md"
 	}
 	if z.Content == "" {
 		z.Content = emptyContent(z.Title)
@@ -137,26 +167,19 @@ func (zr *zettelRepository) Save(ctx context.Context, z *model.Zettel) error {
 }
 
 func (zr *zettelRepository) SaveBulk(ctx context.Context, zettels ...*model.Zettel) error {
-	query := `
-  insert into zettel (id, title, content, type, path)
-	values (:id, :title, :content, :type, :path)
-	on conflict(id) do update set
-	title = excluded.title,
-	content = excluded.content,
-	type = excluded.type,
-	path = excluded.path
-  `
-
 	// Set the zettel default values
 	for _, z := range zettels {
 		if z.Title == "" {
 			return errors.New("error: title cannot be empty")
 		}
+		if z.Slug == "" {
+			z.Slug = slug.Make(z.Title)
+		}
 		if z.ID == "" {
 			z.ID = isosec()
 		}
 		if z.Path == "" {
-			z.Path = zr.config.FleetRoot + "/" + slug.Make(z.Title) + "." + z.ID + ".md"
+			z.Path = zr.config.FleetRoot + "/" + z.ID + ".md"
 		}
 		if z.Content == "" {
 			z.Content = emptyContent(z.Title)
@@ -165,6 +188,17 @@ func (zr *zettelRepository) SaveBulk(ctx context.Context, zettels ...*model.Zett
 			z.Type = "fleet"
 		}
 	}
+
+	query := `
+  insert into zettel (id, title, slug, content, type, path)
+	values (:id, :title, :slug, :content, :type, :path)
+	on conflict(id) do update set
+	title = excluded.title,
+	slug = excluded.slug,
+	content = excluded.content,
+	type = excluded.type,
+	path = excluded.path
+  `
 
 	_, err := zr.DB.DB.NamedExecContext(ctx, query, zettels)
 	if err != nil {
@@ -180,9 +214,9 @@ func (zr *zettelRepository) Link(ctx context.Context, z1 *model.Zettel, zettels 
 	on conflict (zettel_id, link_id) do nothing
 	`
 
-	links := make([]model.Link, len(zettels))
+	links := make([]*model.Link, len(zettels))
 	for i, z2 := range zettels {
-		links[i] = model.Link{
+		links[i] = &model.Link{
 			From: z1.ID,
 			To:   z2.ID,
 		}
@@ -191,14 +225,6 @@ func (zr *zettelRepository) Link(ctx context.Context, z1 *model.Zettel, zettels 
 	if err != nil {
 		return err
 	}
-
-	dbLinks := []*model.Zettel{}
-	err = zr.DB.DB.SelectContext(ctx, &dbLinks, `select z2.* from link l join zettel z2 on l.link_id = z2.id where l.zettel_id = ?`, z1.ID)
-	if err != nil {
-		return err
-	}
-
-	z1.Links = dbLinks
 
 	return nil
 }
@@ -438,6 +464,7 @@ func (zr *zettelRepository) Search(ctx context.Context, query string) ([]*model.
 	select
 		z.id,
 		z.title,
+		z.slug,
 		z.content,
 		z.path,
 		z.created_at,

@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"sync/atomic"
-	"time"
+	"log"
 
 	"github.com/odas0r/zet/internal/model"
 	"github.com/odas0r/zet/internal/repository"
@@ -100,13 +98,7 @@ func BrokenLinks(zr repository.ZettelRepository) ([]*model.Zettel, error) {
 		if err := zet.Read(zr.Config()); err != nil {
 			return nil, err
 		}
-
-		ok, err := zet.HasBrokenLinks(zr.Config())
-		if err != nil {
-			return nil, err
-		}
-
-		if ok {
+		if zet.HasBrokenLinks(zr.Config()) {
 			brokenZettels = append(brokenZettels, zet)
 		}
 	}
@@ -123,20 +115,15 @@ func Last(zr repository.ZettelRepository) (*model.Zettel, error) {
 	return zet, nil
 }
 
+func InsertHistory(zr repository.ZettelRepository, zet *model.Zettel) error {
+	return zr.InsertHistory(context.Background(), zet)
+}
+
 func Save(zr repository.ZettelRepository, path string) (*model.Zettel, error) {
 	zet := &model.Zettel{Path: path}
 
 	// Get all the zettel metadata
 	if err := zet.Read(zr.Config()); err != nil {
-		return nil, err
-	}
-
-	if zet.ID == "" {
-		zet.ID = time.Now().Format("20060102150405")
-	}
-
-	// Do repairs if needed
-	if err := zet.Repair(); err != nil {
 		return nil, err
 	}
 
@@ -147,6 +134,13 @@ func Save(zr repository.ZettelRepository, path string) (*model.Zettel, error) {
 
 	if err := zr.InsertHistory(context.Background(), zet); err != nil {
 		return nil, err
+	}
+
+	// We need to expand the links by the slug to get the full zettel
+	for _, link := range zet.Links {
+		if err := zr.Get(context.Background(), link); err != nil {
+			return nil, err
+		}
 	}
 
 	// Add links if there are any
@@ -168,27 +162,13 @@ func Sync(zr repository.ZettelRepository) error {
 	paths := append(fleet, perm...)
 
 	var zettels []*model.Zettel
-	var counter uint64
-
 	for _, path := range paths {
-		// 1. Initialize the new zettel and read
 		zet := &model.Zettel{
 			Path: path,
 		}
 		if err := zet.Read(cfg); err != nil {
 			return err
 		}
-
-		if zet.ID == "" {
-			// generate a new ID for the zettel, using the current timestamp
-			// and a counter to avoid collisions
-			zet.ID = fmt.Sprintf("%s%01d", time.Now().Format("20060102150405"), atomic.AddUint64(&counter, 1)%100000)
-		}
-
-		if err := zet.Repair(); err != nil {
-			return err
-		}
-
 		zettels = append(zettels, zet)
 	}
 
@@ -196,14 +176,29 @@ func Sync(zr repository.ZettelRepository) error {
 		return err
 	}
 
+	// Retrieve all links from slug
+	for _, zet := range zettels {
+		for _, link := range zet.Links {
+			if err := zr.Get(context.Background(), link); err != nil {
+				if err == repository.ErrZettelNotFound {
+					log.Printf("warning: link not found: %s\n in %s\n", link.Slug, zet.Path)
+					continue
+				}
+				return err
+			}
+		}
+	}
+
 	var links []*model.Link
 	for _, zet := range zettels {
-		for _, zetLink := range zet.Links {
-			link := &model.Link{
-				From: zet.ID,
-				To:   zetLink.ID,
+		for _, link := range zet.Links {
+			if link.ID != "" {
+				link := &model.Link{
+					From: zet.ID,
+					To:   link.ID,
+				}
+				links = append(links, link)
 			}
-			links = append(links, link)
 		}
 	}
 
