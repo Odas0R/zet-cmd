@@ -1,6 +1,8 @@
 build:
 	go build -tags "fts5" -o zet ./cmd/zet \
 		&& goose -dir ./migrations sqlite3 ./zettel.db up
+install:
+		sudo install -m 755 zet "$HOME/.local/bin"
 build-tmp:
 	TEST=true go test -tags "fts5" ./... \
 	&& go build -tags "fts5" -o zet ./cmd/zet \
@@ -23,4 +25,4 @@ schema:
 test:
 	TEST=true go test -tags "fts5" ./...
 
-.PHONY: build test new up down status schema watch
+.PHONY: build test new up down status schema watch install
