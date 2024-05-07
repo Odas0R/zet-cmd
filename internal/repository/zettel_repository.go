@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -52,7 +51,6 @@ type ZettelRepository interface {
 type zettelRepository struct {
 	config *config.Config
 	DB     *database.Database
-	mu     sync.Mutex
 }
 
 func NewZettelRepository(db *database.Database, config *config.Config) ZettelRepository {
@@ -137,9 +135,7 @@ func (zr *zettelRepository) Save(ctx context.Context, z *model.Zettel) error {
 		z.Slug = slug.Make(z.Title)
 	}
 	if z.ID == "" {
-		zr.mu.Lock()
 		z.ID = isosec()
-		zr.mu.Unlock()
 	}
 	if z.Path == "" {
 		z.Path = zr.config.FleetRoot + "/" + z.ID + ".md"

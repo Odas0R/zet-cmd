@@ -11,18 +11,20 @@ import (
 )
 
 type Zettel struct {
-	ID        string `db:"id"`
-	Slug      string `db:"slug"`
-	Title     string `db:"title"`
-	Content   string `db:"content"`
-	Path      string `db:"path"`
-	Type      string `db:"type"`
-	CreatedAt Time   `db:"created_at"`
-	UpdatedAt Time   `db:"updated_at"`
+	ID        string `db:"id" json:"id"`
+	Slug      string `db:"slug" json:"slug"`
+	Title     string `db:"title" json:"title"`
+	Path      string `db:"path" json:"path"`
+	Type      string `db:"type" json:"type"`
+	CreatedAt Time   `db:"created_at" json:"createdAt"`
+	UpdatedAt Time   `db:"updated_at" json:"updatedAt"`
+
+	// prevent content from beign shared on json responses
+	Content string `db:"content" json:"-"`
 
 	// Auxiliary fields (not stored in the database)
-	Lines []string
-	Links []*Zettel
+	Lines []string `json:"-"`
+	Links []*Zettel `json:"-"`
 }
 
 // IsValid checks if file is a zettel and if it exists.

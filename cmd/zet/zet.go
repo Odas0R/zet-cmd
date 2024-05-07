@@ -29,22 +29,27 @@ func Search(zr repository.ZettelRepository, query string) ([]*model.Zettel, erro
 	return zr.Search(context.Background(), query)
 }
 
-func Remove(zr repository.ZettelRepository, path string) error {
+func Remove(zr repository.ZettelRepository, path string) (*model.Zettel, error){
 	zet := &model.Zettel{
 		Path: path,
 	}
 
+	// get the zettel from the database
+	if err := zr.Get(context.Background(), zet); err != nil {
+		return nil, err
+	}
+
 	if err := zr.Remove(context.Background(), zet); err != nil {
-		return err
+		return nil, err
 	}
 
 	if fs.Exists(zet.Path) {
 		if err := fs.Remove(zet.Path); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return zet, nil
 }
 
 func History(zr repository.ZettelRepository) ([]*model.Zettel, error) {
@@ -78,6 +83,55 @@ func BackLinks(zr repository.ZettelRepository, path string) ([]*model.Zettel, er
 		return nil, err
 	}
 	return zettels, nil
+}
+
+func Permanent(zr repository.ZettelRepository, path string) (*model.Zettel, error) {
+	// transform the zettel to permanent
+	zet := &model.Zettel{
+		Path: path,
+	}
+
+	if err := zr.Get(context.Background(), zet); err != nil {
+		return nil, err
+	}
+
+	zet.Type = "permanent"
+	zet.Path = zr.Config().PermanentRoot + "/" + zet.Slug + ".md"
+
+	if err := zr.Save(context.Background(), zet); err != nil {
+		return nil, err
+	}
+
+	// Move the file to the permanent directory
+	if err := fs.Move(path, zet.Path); err != nil {
+		return nil, err
+	}
+
+	return zet, nil
+}
+
+func Fleet(zr repository.ZettelRepository, path string) (*model.Zettel, error) {
+	zet := &model.Zettel{
+		Path: path,
+	}
+
+	if err := zr.Get(context.Background(), zet); err != nil {
+		return nil, err
+	}
+
+	zet.Type = "fleet"
+	zet.Path = zr.Config().FleetRoot + "/" + zet.Slug + ".md"
+
+	if err := zr.Save(context.Background(), zet); err != nil {
+		return nil, err
+	}
+
+	// Move the file to the fleet directory
+	if err := fs.Move(path, zet.Path); err != nil {
+		return nil, err
+	}
+
+	return zet, nil
 }
 
 // How it works?
