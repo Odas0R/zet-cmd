@@ -74,8 +74,12 @@ func (z *Zettel) Read(cfg *config.Config) error {
 		results := fs.MatchAllSubstrings("[[", "]]", line)
 		for _, result := range results {
 			if _, ok := mapLinks[result]; !ok && result != z.Slug && result != "" {
+				var s = result
+				if !slug.IsSlug(s) {
+					s = slug.Make(s)
+				}
 				link := &Zettel{
-					Slug: result,
+					Slug: s,
 				}
 				links = append(links, link)
 				mapLinks[result] = true
