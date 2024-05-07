@@ -17,9 +17,11 @@ integrate or extend the existing functionality.
 
 - ✅ **Create, Open, and Remove Zettels**: Easily manage your notes from the command line.
 - ✅ **Search**: Utilize SQLite's FTS5 extension for powerful full-text search capabilities.
-- ✅ **Linking and Backlinking**: Connect your thoughts and navigate through them intuitively.
 - ✅ **History and Backlog**: Keep track of your most recent and overall zettel landscape.
 - ✅ **Sync and Save**: Keep your filesystem and database in harmony, with automatic fixes on the go.
+
+**Note:** It's advised to use marksman LSP to have a better experience with the
+zettelkasten method.
 
 ## Usage
 
@@ -43,9 +45,9 @@ COMMANDS:
    remove, rm   Removes the given zettel from the database and from the filesystem
    history      Retrieves the last 50 opened zettel
    backlog      Retrieves all the fleet of zettels
-   links        Retrieves all the links of a zettel
-   backlinks    Retrieves all the backlinks of a zettel
    brokenlinks  Retrieves all the brokenlinks of a zettel
+   permanent    Sets the given zettel as type permanent
+   fleet        Sets the given zettel as type fleet
    last         Retrieves the last opened zettel
    save         Inserts or updates the given zettel to the database, and some repairs
    sync         Sync the filesystem with the database and does some fixing on the side
