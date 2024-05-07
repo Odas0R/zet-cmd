@@ -82,10 +82,7 @@ func BackLinks(zr repository.ZettelRepository, path string) ([]*model.Zettel, er
 
 // How it works?
 //
-// - A broken link is when [[<empty>]] or [[<invalid_id>]]
-//
-// TODO: improve the return so that it shows on which line and column
-// the broken link is so that you can use with quickfix list
+// - A broken link is when [[<empty>]] or [[<invalid_slug>]]
 func BrokenLinks(zr repository.ZettelRepository) ([]*model.Zettel, error) {
 	zettels, err := zr.ListAll(context.Background())
 	if err != nil {
@@ -98,10 +95,18 @@ func BrokenLinks(zr repository.ZettelRepository) ([]*model.Zettel, error) {
 		if err := zet.Read(zr.Config()); err != nil {
 			return nil, err
 		}
-		if zet.HasBrokenLinks(zr.Config()) {
-			brokenZettels = append(brokenZettels, zet)
+
+		for _, link := range zet.Links {
+			if err := zr.Get(context.Background(), link); err != nil {
+				if err == repository.ErrZettelNotFound || err == repository.ErrNoZettel {
+					brokenZettels = append(brokenZettels, zet)
+				} else {
+					return nil, err
+				}
+			}
 		}
 	}
+
 	return brokenZettels, nil
 }
 
@@ -180,8 +185,8 @@ func Sync(zr repository.ZettelRepository) error {
 	for _, zet := range zettels {
 		for _, link := range zet.Links {
 			if err := zr.Get(context.Background(), link); err != nil {
-				if err == repository.ErrZettelNotFound {
-					log.Printf("warning: link not found: %s\n in %s\n", link.Slug, zet.Path)
+				if err == repository.ErrZettelNotFound || err == repository.ErrNoZettel {
+					log.Printf("warning: link not found: [[%s]] in %s\n", link.Slug, zet.Path)
 					continue
 				}
 				return err

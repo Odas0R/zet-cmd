@@ -92,16 +92,6 @@ func (z *Zettel) Read(cfg *config.Config) error {
 	return nil
 }
 
-func (z *Zettel) HasBrokenLinks(cfg *config.Config) bool {
-	for _, link := range z.Links {
-		if !link.IsValid(cfg) {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (z *Zettel) Write() error {
 	return fs.Write(z.Path, z.Content)
 }

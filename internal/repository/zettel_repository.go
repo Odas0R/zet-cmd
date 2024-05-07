@@ -22,6 +22,7 @@ var counter uint64
 // Errors
 var (
 	ErrZettelNotFound = errors.New("error: zettel not found")
+	ErrNoZettel       = errors.New("error: no zettel provided")
 )
 
 type ZettelRepository interface {
@@ -78,7 +79,7 @@ func (zr *zettelRepository) Get(c context.Context, zettel *model.Zettel) error {
 	} else if zettel.Slug != "" {
 		query = `select * from zettel where slug = :slug`
 	} else {
-		return errors.New("error: zettel id, path, or slug must be provided")
+		return ErrNoZettel
 	}
 
 	// Execute the query with named parameters
