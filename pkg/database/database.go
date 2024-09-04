@@ -98,3 +98,27 @@ func (t *Transaction) Commit() error {
 func (t *Transaction) Rollback() error {
 	return t.Tx.Rollback()
 }
+
+// func CheckForLocks(db *sqlx.DB) error {
+//     type LockStatus struct {
+//         Database string `db:"database"`
+//         Table    string `db:"table"`
+//         Type     string `db:"type"`
+//     }
+//
+//     var locks []LockStatus
+//     err := db.Select(&locks, "PRAGMA lock_status")
+//     if err != nil {
+//         return err
+//     }
+//
+//     if len(locks) == 0 {
+//         log.Println("No locks found.")
+//     } else {
+//         for _, lock := range locks {
+//             log.Printf("Lock found: Database=%s, Table=%s, Type=%s\n", lock.Database, lock.Table, lock.Type)
+//         }
+//     }
+//
+//     return nil
+// }

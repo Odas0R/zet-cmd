@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -70,7 +71,11 @@ func main() {
 					}
 
 					if c.Bool("raw") {
-						io.WriteString(os.Stdout, zet.Path)
+						bytes, err := json.Marshal(zet)
+						if err != nil {
+							log.Fatalf("error: failed to marshal zettel: %v", err)
+						}
+						io.WriteString(os.Stdout, string(bytes))
 						return nil
 					}
 
@@ -124,9 +129,12 @@ func main() {
 						log.Fatalf("error: failed to search for zettels: %v", err)
 					}
 
-					for _, zet := range zettels {
-						fmt.Fprintf(c.App.Writer, "%s\n", zet.Path)
+					bytes, err := json.Marshal(zettels)
+					if err != nil {
+						log.Fatalf("error: failed to marshal zettel: %v", err)
 					}
+
+					io.WriteString(os.Stdout, string(bytes))
 
 					return nil
 				},
@@ -143,9 +151,17 @@ func main() {
 					}
 					path := c.Args().Slice()[0]
 
-					if err := Remove(zr, path); err != nil {
+					zet, err := Remove(zr, path)
+					if err != nil {
 						log.Fatalf("error: failed to remove zettel: %v", err)
 					}
+
+					bytes, err := json.Marshal(zet)
+					if err != nil {
+						log.Fatalf("error: failed to marshal zettel: %v", err)
+					}
+
+					io.WriteString(os.Stdout, string(bytes))
 
 					return nil
 				},
@@ -159,9 +175,11 @@ func main() {
 						log.Fatalf("error: failed to query the history: %v", err)
 					}
 
-					for _, zettel := range zettels {
-						io.WriteString(os.Stdout, zettel.Path+"\n")
+					bytes, err := json.Marshal(zettels)
+					if err != nil {
+						log.Fatalf("error: failed to marshal zettel: %v", err)
 					}
+					io.WriteString(os.Stdout, string(bytes))
 
 					return nil
 				},
@@ -175,51 +193,11 @@ func main() {
 						log.Fatalf("error: failed to query the backlog: %v", err)
 					}
 
-					for _, zettel := range zettels {
-						io.WriteString(os.Stdout, zettel.Path+"\n")
-					}
-
-					return nil
-				},
-			},
-			{
-				Name:  "links",
-				Usage: "Retrieves all the links of a zettel",
-				Action: func(c *cli.Context) error {
-					if c.NArg() == 0 {
-						return nil
-					}
-					path := c.Args().Slice()[0]
-
-					zettels, err := Links(zr, path)
+					bytes, err := json.Marshal(zettels)
 					if err != nil {
-						return err
+						log.Fatalf("error: failed to marshal zettel: %v", err)
 					}
-
-					for _, zettel := range zettels {
-						io.WriteString(os.Stdout, zettel.Path+"\n")
-					}
-
-					return nil
-				},
-			},
-			{
-				Name:  "backlinks",
-				Usage: "Retrieves all the backlinks of a zettel",
-				Action: func(c *cli.Context) error {
-					if c.NArg() == 0 {
-						return nil
-					}
-					path := c.Args().Slice()[0]
-
-					zettels, err := BackLinks(zr, path)
-					if err != nil {
-						return err
-					}
-
-					for _, zettel := range zettels {
-						io.WriteString(os.Stdout, zettel.Path+"\n")
-					}
+					io.WriteString(os.Stdout, string(bytes))
 
 					return nil
 				},
@@ -233,9 +211,57 @@ func main() {
 						log.Fatalf("error: failed to query all the brokenlinks of a zettel: %v", err)
 					}
 
-					for _, zettel := range zettels {
-						io.WriteString(os.Stdout, zettel.Path+"\n")
+					bytes, err := json.Marshal(zettels)
+					if err != nil {
+						log.Fatalf("error: failed to marshal zettel: %v", err)
 					}
+					io.WriteString(os.Stdout, string(bytes))
+
+					return nil
+				},
+			},
+			{
+				Name:  "permanent",
+				Usage: "Sets the given zettel as type permanent",
+				Action: func(c *cli.Context) error {
+					if c.NArg() == 0 {
+						return nil
+					}
+					path := c.Args().Slice()[0]
+
+					zet, err := Permanent(zr, path)
+					if err != nil {
+						log.Fatalf("error: failed to set zettel as permanent: %v", err)
+					}
+
+					bytes, err := json.Marshal(zet)
+					if err != nil {
+						log.Fatalf("error: failed to marshal zettel: %v", err)
+					}
+					io.WriteString(os.Stdout, string(bytes))
+
+					return nil
+				},
+			},
+			{
+				Name:  "fleet",
+				Usage: "Sets the given zettel as type fleet",
+				Action: func(c *cli.Context) error {
+					if c.NArg() == 0 {
+						return nil
+					}
+					path := c.Args().Slice()[0]
+
+					zet, err := Fleet(zr, path)
+					if err != nil {
+						log.Fatalf("error: failed to set zettel as permanent: %v", err)
+					}
+
+					bytes, err := json.Marshal(zet)
+					if err != nil {
+						log.Fatalf("error: failed to marshal zettel: %v", err)
+					}
+					io.WriteString(os.Stdout, string(bytes))
 
 					return nil
 				},
@@ -250,7 +276,12 @@ func main() {
 						log.Fatalf("error: failed to query the last opened zettel: %v", err)
 					}
 
-					io.WriteString(os.Stdout, zet.Path)
+					bytes, err := json.Marshal(zet)
+					if err != nil {
+						log.Fatalf("error: failed to marshal zettel: %v", err)
+					}
+
+					io.WriteString(os.Stdout, string(bytes))
 
 					return nil
 				},
@@ -269,7 +300,12 @@ func main() {
 						log.Fatalf("error: failed to save zettel: %v", err)
 					}
 
-					io.WriteString(os.Stdout, zet.Path)
+					bytes, err := json.Marshal(zet)
+					if err != nil {
+						log.Fatalf("error: failed to marshal zettel: %v", err)
+					}
+
+					io.WriteString(os.Stdout, string(bytes))
 
 					return nil
 				},

@@ -19,6 +19,11 @@ func (t *Time) Value() (driver.Value, error) {
 	return t.T.UTC().Format(rfc3339Milli), nil
 }
 
+// MarshalJSON satisfies json.Marshaler interface.
+func (t *Time) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("\"%s\"", t.T.UTC().Format(rfc3339Milli))), nil
+}
+
 // Scan satisfies sql.Scanner interface.
 func (t *Time) Scan(src any) error {
 	if src == nil {

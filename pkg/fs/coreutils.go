@@ -180,6 +180,11 @@ func Open(path string) error {
 	return nil
 }
 
+// Move moves a file from one path to another
+func Move(oldPath, newPath string) error {
+	return os.Rename(oldPath, newPath)
+}
+
 // Editor opens a file with the default $EDITOR from the user system
 func Editor(path string) error {
 	editor := os.Getenv("EDITOR")

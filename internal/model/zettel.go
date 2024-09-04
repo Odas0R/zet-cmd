@@ -11,39 +11,37 @@ import (
 )
 
 type Zettel struct {
-	ID        string `db:"id"`
-	Title     string `db:"title"`
-	Content   string `db:"content"`
-	Path      string `db:"path"`
-	Type      string `db:"type"`
-	CreatedAt Time   `db:"created_at"`
-	UpdatedAt Time   `db:"updated_at"`
+	ID        string `db:"id" json:"id"`
+	Slug      string `db:"slug" json:"slug"`
+	Title     string `db:"title" json:"title"`
+	Path      string `db:"path" json:"path"`
+	Type      string `db:"type" json:"type"`
+	CreatedAt Time   `db:"created_at" json:"createdAt"`
+	UpdatedAt Time   `db:"updated_at" json:"updatedAt"`
+
+	// prevent content from beign shared on json responses
+	Content string `db:"content" json:"-"`
 
 	// Auxiliary fields (not stored in the database)
-	Lines []string
-	Links []*Zettel
+	Lines []string `json:"-"`
+	Links []*Zettel `json:"-"`
 }
 
 // IsValid checks if file is a zettel and if it exists.
 func (z *Zettel) IsValid(cfg *config.Config) bool {
-	if z.Path == "" && z.ID == "" {
-		return false
-	}
-
-	// Verify if the zettel is valid by checking its ID
-	if z.ID != "" && z.Path == "" {
+	if z.ID != "" {
 		permZettels := fs.List(cfg.PermanentRoot)
 		fleetZettels := fs.List(cfg.FleetRoot)
-
 		zettels := append(permZettels, fleetZettels...)
 
 		for _, zettel := range zettels {
-			id := "." + z.ID + ".md"
-			if strings.Contains(zettel, id) {
+			if strings.Contains(zettel, z.ID) {
 				return true
 			}
 		}
+	}
 
+	if z.Path == "" {
 		return false
 	}
 
@@ -66,23 +64,27 @@ func (z *Zettel) Read(cfg *config.Config) error {
 
 	z.ID = z.readId()
 	z.Title = strings.TrimPrefix(lines[0], "# ")
+	z.Slug = slug.Make(z.Title)
 	z.Content = strings.Join(lines, "\n")
 	z.Lines = lines
 	z.Type = z.readType(cfg)
 
-	// read links, get all titles from [[wikilinks]] with the format [[#
-	// <title>|<id>]]
+	// read links, get all slugs from [[wikilinks]] like [[slug-link]]
 	var links []*Zettel
+	var mapLinks = make(map[string]bool)
 	for _, line := range lines {
 		results := fs.MatchAllSubstrings("[[", "]]", line)
 		for _, result := range results {
-			if result != "" {
+			if _, ok := mapLinks[result]; !ok && result != z.Slug && result != "" {
+				var s = result
+				if !slug.IsSlug(s) {
+					s = slug.Make(s)
+				}
 				link := &Zettel{
-					ID: result,
+					Slug: s,
 				}
-				if link.IsValid(cfg) {
-					links = append(links, link)
-				}
+				links = append(links, link)
+				mapLinks[result] = true
 			}
 		}
 	}
@@ -90,25 +92,6 @@ func (z *Zettel) Read(cfg *config.Config) error {
 	z.Links = links
 
 	return nil
-}
-
-func (z *Zettel) HasBrokenLinks(cfg *config.Config) (bool, error) {
-	var brokenLinks []*Zettel
-	for _, line := range z.Lines {
-		results := fs.MatchAllSubstrings("[[", "]]", line)
-		for _, result := range results {
-			link := &Zettel{
-				ID: result,
-			}
-
-			if !link.IsValid(cfg) {
-				brokenLinks = append(brokenLinks, link)
-			}
-
-		}
-	}
-
-	return len(brokenLinks) > 0, nil
 }
 
 func (z *Zettel) Write() error {
@@ -120,32 +103,14 @@ func (z *Zettel) WriteLine(line string) error {
 	return z.Write()
 }
 
-func (z *Zettel) Repair() error {
-	oldPath := z.Path
-
-	z.Title = strings.TrimPrefix(z.Lines[0], "# ")
-	z.Path = filepath.Join(filepath.Dir(z.Path), slug.Make(z.Title)+"."+z.ID+".md")
-
-	if oldPath != z.Path {
-		if err := z.Write(); err != nil {
-			return err
-		}
-
-		if err := fs.Remove(oldPath); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (z *Zettel) IsEqual(z2 *Zettel) bool {
 	return z.ID == z2.ID && z.Title == z2.Title && z.Content == z2.Content && z.Path == z2.Path && z.Type == z2.Type
 }
 
 func (z *Zettel) readId() string {
 	fileName := filepath.Base(z.Path)
-	return fs.MatchSubstring(".", ".", fileName)
+	// Remove the extension .md
+	return strings.TrimSuffix(fileName, filepath.Ext(fileName))
 }
 
 func (z *Zettel) readType(cfg *config.Config) string {
