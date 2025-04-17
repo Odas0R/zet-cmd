@@ -16,14 +16,12 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-const (
-	rootDir     = "/home/odas0r/github.com/odas0r/zet"
-	databaseUrl = "file:/home/odas0r/github.com/odas0r/zet-cmd/zettel.db"
-	// rootDir     = "/tmp/zet"
-	// databaseUrl = "file:/tmp/zet/zettel.db"
-)
-
 func main() {
+	home := os.Getenv("HOME")
+
+	rootDir := fmt.Sprintf("%s/github.com/odas0r/zet", home)
+	databaseUrl := fmt.Sprintf("file:/%s/github.com/odas0r/zet-cmd/zettel.db", home)
+
 	db := database.NewDatabase(database.NewDatabaseOptions{
 		URL:                databaseUrl,
 		MaxOpenConnections: 1,

@@ -1,6 +1,6 @@
 module github.com/odas0r/zet
 
-go 1.18
+go 1.24.2
 
 require (
 	github.com/gosimple/slug v1.13.1

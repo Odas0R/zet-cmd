@@ -2,6 +2,7 @@ package sqltest
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/odas0r/zet/internal/config"
@@ -9,10 +10,12 @@ import (
 	"github.com/pressly/goose"
 )
 
-const migrationsPath = "/home/odas0r/github.com/odas0r/zet-cmd/migrations"
-
 // CreateDatabase for testing.
 func CreateDatabase(t *testing.T, cfg *config.Config) *database.Database {
+	home := os.Getenv("HOME")
+
+	migrationsPath := fmt.Sprintf("%s/github.com/odas0r/zet-cmd/migrations", home)
+
 	t.Helper()
 
 	db := database.NewDatabase(database.NewDatabaseOptions{
