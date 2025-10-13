@@ -5,16 +5,12 @@ import (
 )
 
 type Config struct {
-	Root          string
-	FleetRoot     string
-	PermanentRoot string
+	Path string
 }
 
-func New(root string) *Config {
+func New(path string) *Config {
 	cfg := &Config{
-		Root:          root,
-		FleetRoot:     root + "/fleet",
-		PermanentRoot: root + "/permanent",
+		Path: path,
 	}
 
 	if err := cfg.createRoot(); err != nil {
@@ -26,15 +22,7 @@ func New(root string) *Config {
 
 func (c *Config) createRoot() error {
 
-	if err := fs.Mkdir(c.Root); err != nil {
-		return err
-	}
-
-	if err := fs.Mkdir(c.FleetRoot); err != nil {
-		return err
-	}
-
-	if err := fs.Mkdir(c.PermanentRoot); err != nil {
+	if err := fs.Mkdir(c.Path); err != nil {
 		return err
 	}
 

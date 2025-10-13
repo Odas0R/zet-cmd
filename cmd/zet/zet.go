@@ -56,10 +56,6 @@ func History(zr repository.ZettelRepository) ([]*model.Zettel, error) {
 	return zr.History(context.Background())
 }
 
-func Backlog(zr repository.ZettelRepository) ([]*model.Zettel, error) {
-	return zr.ListFleet(context.Background())
-}
-
 func Links(zr repository.ZettelRepository, path string) ([]*model.Zettel, error) {
 	zet := &model.Zettel{
 		Path: path,
@@ -85,60 +81,11 @@ func BackLinks(zr repository.ZettelRepository, path string) ([]*model.Zettel, er
 	return zettels, nil
 }
 
-func Permanent(zr repository.ZettelRepository, path string) (*model.Zettel, error) {
-	// transform the zettel to permanent
-	zet := &model.Zettel{
-		Path: path,
-	}
-
-	if err := zr.Get(context.Background(), zet); err != nil {
-		return nil, err
-	}
-
-	zet.Type = "permanent"
-	zet.Path = zr.Config().PermanentRoot + "/" + zet.Slug + ".md"
-
-	if err := zr.Save(context.Background(), zet); err != nil {
-		return nil, err
-	}
-
-	// Move the file to the permanent directory
-	if err := fs.Move(path, zet.Path); err != nil {
-		return nil, err
-	}
-
-	return zet, nil
-}
-
-func Fleet(zr repository.ZettelRepository, path string) (*model.Zettel, error) {
-	zet := &model.Zettel{
-		Path: path,
-	}
-
-	if err := zr.Get(context.Background(), zet); err != nil {
-		return nil, err
-	}
-
-	zet.Type = "fleet"
-	zet.Path = zr.Config().FleetRoot + "/" + zet.Slug + ".md"
-
-	if err := zr.Save(context.Background(), zet); err != nil {
-		return nil, err
-	}
-
-	// Move the file to the fleet directory
-	if err := fs.Move(path, zet.Path); err != nil {
-		return nil, err
-	}
-
-	return zet, nil
-}
-
 // How it works?
 //
 // - A broken link is when [[<empty>]] or [[<invalid_slug>]]
 func BrokenLinks(zr repository.ZettelRepository) ([]*model.Zettel, error) {
-	zettels, err := zr.ListAll(context.Background())
+	zettels, err := zr.List(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -215,10 +162,7 @@ func Save(zr repository.ZettelRepository, path string) (*model.Zettel, error) {
 func Sync(zr repository.ZettelRepository) error {
 	cfg := zr.Config()
 
-	fleet := fs.List(cfg.FleetRoot)
-	perm := fs.List(cfg.PermanentRoot)
-
-	paths := append(fleet, perm...)
+	paths := fs.List(cfg.Path)
 
 	var zettels []*model.Zettel
 	for _, path := range paths {
@@ -270,7 +214,7 @@ func Sync(zr repository.ZettelRepository) error {
 	// cleaning up phase
 	//
 
-	dbZettel, err := zr.ListAll(context.Background())
+	dbZettel, err := zr.List(context.Background())
 	if err != nil {
 		return err
 	}

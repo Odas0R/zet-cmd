@@ -45,7 +45,6 @@ func TestZettelRepository_Get(t *testing.T) {
 		// check metadata
 		assert.Equal(t, z1.ID, "4", "z1 should have correct id")
 		assert.Equal(t, z1.Title, "Testing Zettel", "z1 should have correct title")
-		assert.Equal(t, z1.Type, "fleet", "z1 should have correct type")
 		assert.Equal(t, z1.Links[0].ID, "5", "z1 should link to z2")
 		assert.Equal(t, z1.Links[1].ID, "6", "z1 should link to z3")
 	})
@@ -69,7 +68,6 @@ func TestZettelRepository_Create(t *testing.T) {
 		assert.Equal(t, zettel.Lines[0], "# Testing Zettel", "first line should be the title")
 		assert.Equal(t, zettel.Lines[1], "", "second line should be a empty line")
 		assert.Equal(t, zettel.Lines[2], "", "third line should be a empty line")
-		assert.Equal(t, zettel.Type, "fleet", "type should be fleet")
 		assert.Equal(t, zettel.Path, "/tmp/zet-cmd/fleet/"+zettel.ID+".md", "path should be correct")
 	})
 	t.Run("can create bulk zettel", func(t *testing.T) {
@@ -84,7 +82,6 @@ Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
 tempor invidunt ut labore et dolore magna aliquyam
 `,
 			Path: "/tmp/zet-cmd/fleet/1.md",
-			Type: "fleet",
 		}
 		z2 := &model.Zettel{
 			ID:    "2",
@@ -94,7 +91,6 @@ Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
 tempor invidunt ut labore et dolore magna aliquyam
 `,
 			Path: "/tmp/zet-cmd/fleet/2.md",
-			Type: "fleet",
 		}
 		z3 := &model.Zettel{
 			ID:    "3",
@@ -104,7 +100,6 @@ Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod
 tempor invidunt ut labore et dolore magna aliquyam
 `,
 			Path: "/tmp/zet-cmd/fleet/3.md",
-			Type: "fleet",
 		}
 
 		var zettels []*model.Zettel
@@ -120,21 +115,18 @@ tempor invidunt ut labore et dolore magna aliquyam
 		fetchLatestZettel(t, repo, z1)
 
 		assert.Equal(t, z1.Title, "Testing Zettel", "z1 title should be correct")
-		assert.Equal(t, z1.Type, "fleet", "z1 type should be fleet")
 		assert.Equal(t, z1.Path, "/tmp/zet-cmd/fleet/"+z1.ID+".md", "z1 path should be correct")
 		assert.Equal(t, z1.Lines[0], "# Testing Zettel aiosjfoiasj foiaasfiajsof  oasjdf oi", "z1 first line should be correct")
 
 		fetchLatestZettel(t, repo, z2)
 
 		assert.Equal(t, z2.Title, "Testing Zettel", "z2 title should be correct")
-		assert.Equal(t, z2.Type, "fleet", "z2 type should be fleet")
 		assert.Equal(t, z2.Path, "/tmp/zet-cmd/fleet/"+z2.ID+".md", "z2 path should be correct")
 		assert.Equal(t, z2.Lines[0], "# Testing Zettel aiosjfoiasj foia", "z2 line 1 should be correct")
 
 		fetchLatestZettel(t, repo, z3)
 
 		assert.Equal(t, z3.Title, "Testing Zettel", "z3 title should be correct")
-		assert.Equal(t, z3.Type, "fleet", "z3 type should be fleet")
 		assert.Equal(t, z3.Path, "/tmp/zet-cmd/fleet/"+z3.ID+".md", "z3 path should be correct")
 		assert.Equal(t, z3.Lines[0], "# Testing Zettel aiosjfo", "z3 line 1 should be correct")
 	})
@@ -403,78 +395,6 @@ func TestZettelRepository_Remove(t *testing.T) {
 }
 
 func TestZettelRepository_List(t *testing.T) {
-	t.Run("can list all fleets", func(t *testing.T) {
-		db := sqltest.CreateDatabase(t, cfg)
-		repo := NewZettelRepository(db, cfg)
-
-		err := repo.Reset(context.Background())
-		require.Equal(t, err, nil, "failed to reset database")
-
-		zettels := []*model.Zettel{
-			{
-				ID:    "1",
-				Title: "Testing Zettel",
-			},
-			{
-				ID:    "2",
-				Title: "Testing Zettel",
-			},
-			{
-				ID:    "3",
-				Title: "Testing Zettel",
-			},
-		}
-
-		err = repo.SaveBulk(context.Background(), zettels...)
-		require.Equal(t, err, nil, "failed to create zettel")
-
-		fleets, err := repo.ListFleet(context.Background())
-		require.Equal(t, err, nil, "failed to list fleets")
-
-		assert.Equal(t, len(fleets), 3, "should have no fleets")
-	})
-
-	t.Run("can list all permanent ", func(t *testing.T) {
-		db := sqltest.CreateDatabase(t, cfg)
-		repo := NewZettelRepository(db, cfg)
-
-		err := repo.Reset(context.Background())
-		require.Equal(t, err, nil, "failed to reset database")
-
-		zettels := []*model.Zettel{
-			{
-				ID:    "1",
-				Title: "Testing Zettel",
-			},
-			{
-				ID:    "2",
-				Title: "Testing Zettel",
-			},
-			{
-				ID:    "3",
-				Title: "Testing Zettel",
-			},
-		}
-
-		err = repo.SaveBulk(context.Background(), zettels...)
-		require.Equal(t, err, nil, "failed to create zettel")
-
-		// List All Permanent
-		//
-		zettels[0].Type = "permanent"
-		zettels[0].Path = strings.Replace(zettels[0].Path, "fleet", "permanent", 1)
-
-		zettels[1].Type = "permanent"
-		zettels[1].Path = strings.Replace(zettels[1].Path, "fleet", "permanent", 1)
-
-		err = repo.SaveBulk(context.Background(), zettels...)
-		require.Equal(t, err, nil, "failed to save zettel")
-
-		permanents, err := repo.ListPermanent(context.Background())
-		require.Equal(t, err, nil, "failed to list permanent")
-		assert.Equal(t, len(permanents), 2, "should have no fleets")
-	})
-
 	t.Run("can list all zettels", func(t *testing.T) {
 		db := sqltest.CreateDatabase(t, cfg)
 		repo := NewZettelRepository(db, cfg)
@@ -502,16 +422,14 @@ func TestZettelRepository_List(t *testing.T) {
 
 		// List All Permanent
 		//
-		zettels[0].Type = "permanent"
 		zettels[0].Path = strings.Replace(zettels[0].Path, "fleet", "permanent", 1)
 
-		zettels[1].Type = "permanent"
 		zettels[1].Path = strings.Replace(zettels[1].Path, "fleet", "permanent", 1)
 
 		err = repo.SaveBulk(context.Background(), zettels...)
 		require.Equal(t, err, nil, "failed to save zettel")
 
-		zettels, err = repo.ListAll(context.Background())
+		zettels, err = repo.List(context.Background())
 		require.Equal(t, err, nil, "failed to list permanent")
 		assert.Equal(t, len(zettels), 3, "should have no fleets")
 	})
@@ -560,7 +478,4 @@ func createZettel(t *testing.T, repo ZettelRepository, z *model.Zettel) {
 func fetchLatestZettel(t *testing.T, repo ZettelRepository, zet *model.Zettel) {
 	err := repo.Get(context.Background(), zet)
 	require.Equal(t, err, nil, "failed to get the zettel from db")
-}
-
-func cleanupZettels(t *testing.T, repo ZettelRepository) {
 }

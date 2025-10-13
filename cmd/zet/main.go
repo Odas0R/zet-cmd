@@ -20,7 +20,7 @@ func main() {
 	home := os.Getenv("HOME")
 
 	rootDir := fmt.Sprintf("%s/github.com/odas0r/zet", home)
-	databaseUrl := fmt.Sprintf("file:/%s/github.com/odas0r/zet-cmd/zettel.db", home)
+	databaseUrl := fmt.Sprintf("file:%s/github.com/odas0r/zet-cmd/zettel.db", home)
 
 	db := database.NewDatabase(database.NewDatabaseOptions{
 		URL:                databaseUrl,
@@ -35,7 +35,7 @@ func main() {
 
 	app := &cli.App{
 		Name:    "zet",
-		Version: "0.1",
+		Version: "1.0",
 		Authors: []*cli.Author{
 			{
 				Name:  "odas0r",
@@ -73,7 +73,9 @@ func main() {
 						if err != nil {
 							log.Fatalf("error: failed to marshal zettel: %v", err)
 						}
-						io.WriteString(os.Stdout, string(bytes))
+
+						io.Writer.Write(os.Stdout, bytes)
+
 						return nil
 					}
 
@@ -132,7 +134,7 @@ func main() {
 						log.Fatalf("error: failed to marshal zettel: %v", err)
 					}
 
-					io.WriteString(os.Stdout, string(bytes))
+					io.Writer.Write(os.Stdout, bytes)
 
 					return nil
 				},
@@ -159,7 +161,7 @@ func main() {
 						log.Fatalf("error: failed to marshal zettel: %v", err)
 					}
 
-					io.WriteString(os.Stdout, string(bytes))
+					io.Writer.Write(os.Stdout, bytes)
 
 					return nil
 				},
@@ -177,25 +179,8 @@ func main() {
 					if err != nil {
 						log.Fatalf("error: failed to marshal zettel: %v", err)
 					}
-					io.WriteString(os.Stdout, string(bytes))
 
-					return nil
-				},
-			},
-			{
-				Name:  "backlog",
-				Usage: "Retrieves all the fleet of zettels",
-				Action: func(_ *cli.Context) error {
-					zettels, err := Backlog(zr)
-					if err != nil {
-						log.Fatalf("error: failed to query the backlog: %v", err)
-					}
-
-					bytes, err := json.Marshal(zettels)
-					if err != nil {
-						log.Fatalf("error: failed to marshal zettel: %v", err)
-					}
-					io.WriteString(os.Stdout, string(bytes))
+					io.Writer.Write(os.Stdout, bytes)
 
 					return nil
 				},
@@ -213,53 +198,8 @@ func main() {
 					if err != nil {
 						log.Fatalf("error: failed to marshal zettel: %v", err)
 					}
-					io.WriteString(os.Stdout, string(bytes))
 
-					return nil
-				},
-			},
-			{
-				Name:  "permanent",
-				Usage: "Sets the given zettel as type permanent",
-				Action: func(c *cli.Context) error {
-					if c.NArg() == 0 {
-						return nil
-					}
-					path := c.Args().Slice()[0]
-
-					zet, err := Permanent(zr, path)
-					if err != nil {
-						log.Fatalf("error: failed to set zettel as permanent: %v", err)
-					}
-
-					bytes, err := json.Marshal(zet)
-					if err != nil {
-						log.Fatalf("error: failed to marshal zettel: %v", err)
-					}
-					io.WriteString(os.Stdout, string(bytes))
-
-					return nil
-				},
-			},
-			{
-				Name:  "fleet",
-				Usage: "Sets the given zettel as type fleet",
-				Action: func(c *cli.Context) error {
-					if c.NArg() == 0 {
-						return nil
-					}
-					path := c.Args().Slice()[0]
-
-					zet, err := Fleet(zr, path)
-					if err != nil {
-						log.Fatalf("error: failed to set zettel as permanent: %v", err)
-					}
-
-					bytes, err := json.Marshal(zet)
-					if err != nil {
-						log.Fatalf("error: failed to marshal zettel: %v", err)
-					}
-					io.WriteString(os.Stdout, string(bytes))
+					io.Writer.Write(os.Stdout, bytes)
 
 					return nil
 				},
@@ -279,7 +219,7 @@ func main() {
 						log.Fatalf("error: failed to marshal zettel: %v", err)
 					}
 
-					io.WriteString(os.Stdout, string(bytes))
+					io.Writer.Write(os.Stdout, bytes)
 
 					return nil
 				},
@@ -303,7 +243,7 @@ func main() {
 						log.Fatalf("error: failed to marshal zettel: %v", err)
 					}
 
-					io.WriteString(os.Stdout, string(bytes))
+					io.Writer.Write(os.Stdout, bytes)
 
 					return nil
 				},

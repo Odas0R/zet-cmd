@@ -19,7 +19,7 @@ func CreateDatabase(t *testing.T, cfg *config.Config) *database.Database {
 	t.Helper()
 
 	db := database.NewDatabase(database.NewDatabaseOptions{
-		URL:                fmt.Sprintf("file:%s/zettel_test.db", cfg.Root),
+		URL:                fmt.Sprintf("file:%s/zettel_test.db", cfg.Path),
 		MaxOpenConnections: 1,
 		MaxIdleConnections: 1,
 	})

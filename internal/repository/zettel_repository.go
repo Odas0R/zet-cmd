@@ -39,9 +39,7 @@ type ZettelRepository interface {
 	LastOpened(ctx context.Context, zettel *model.Zettel) error
 	InsertHistory(ctx context.Context, zettel *model.Zettel) error
 	History(ctx context.Context) ([]*model.Zettel, error)
-	ListFleet(ctx context.Context) ([]*model.Zettel, error)
-	ListPermanent(ctx context.Context) ([]*model.Zettel, error)
-	ListAll(ctx context.Context) ([]*model.Zettel, error)
+	List(ctx context.Context) ([]*model.Zettel, error)
 	Backlinks(ctx context.Context, zet *model.Zettel) ([]*model.Zettel, error)
 	Search(ctx context.Context, query string) ([]*model.Zettel, error)
 	Reset(ctx context.Context) error
@@ -102,11 +100,11 @@ func (zr *zettelRepository) Get(c context.Context, zettel *model.Zettel) error {
 
 	// Get links
 	query = `
-        select z2.*
-        from link l
-        join zettel z2 on l.link_id = z2.id
-        where l.zettel_id = ?
-    `
+		select z2.*
+		from link l
+		join zettel z2 on l.link_id = z2.id
+		where l.zettel_id = ?
+	`
 	links := []*model.Zettel{}
 	err = zr.DB.DB.SelectContext(ctx, &links, query, zettel.ID)
 	if err != nil {
@@ -120,11 +118,11 @@ func (zr *zettelRepository) Get(c context.Context, zettel *model.Zettel) error {
 
 func (zr *zettelRepository) Save(ctx context.Context, z *model.Zettel) error {
 	query := `
-  insert into zettel (id, title, slug, content, type, path)
-	values (:id, :title, :slug, :content, :type, :path)
-	on conflict (id) do
-	update set title = excluded.title, slug = excluded.slug, content = excluded.content, type = excluded.type, path = excluded.path
-  returning id, title, slug, content, type, path, created_at, updated_at
+		insert into zettel (id, title, slug, content, path)
+		values (:id, :title, :slug, :content, :path)
+		on conflict (id) do
+		update set title = excluded.title, slug = excluded.slug, content = excluded.content, path = excluded.path
+		returning id, title, slug, content, path, created_at, updated_at
   `
 
 	// Set the zettel default values
@@ -138,14 +136,11 @@ func (zr *zettelRepository) Save(ctx context.Context, z *model.Zettel) error {
 		z.ID = isosec()
 	}
 	if z.Path == "" {
-		z.Path = zr.config.FleetRoot + "/" + z.ID + ".md"
+		z.Path = zr.config.Path + "/" + z.ID + ".md"
 	}
 	if z.Content == "" {
 		z.Content = emptyContent(z.Title)
 		z.Lines = strings.Split(z.Content, "\n")
-	}
-	if z.Type == "" {
-		z.Type = "fleet"
 	}
 
 	rows, err := zr.DB.DB.NamedQueryContext(ctx, query, z)
@@ -176,24 +171,20 @@ func (zr *zettelRepository) SaveBulk(ctx context.Context, zettels ...*model.Zett
 			z.ID = isosec()
 		}
 		if z.Path == "" {
-			z.Path = zr.config.FleetRoot + "/" + z.ID + ".md"
+			z.Path = zr.config.Path + "/" + z.ID + ".md"
 		}
 		if z.Content == "" {
 			z.Content = emptyContent(z.Title)
 		}
-		if z.Type == "" {
-			z.Type = "fleet"
-		}
 	}
 
 	query := `
-  insert into zettel (id, title, slug, content, type, path)
-	values (:id, :title, :slug, :content, :type, :path)
+  insert into zettel (id, title, slug, content, path)
+	values (:id, :title, :slug, :content, :path)
 	on conflict(id) do update set
 	title = excluded.title,
 	slug = excluded.slug,
 	content = excluded.content,
-	type = excluded.type,
 	path = excluded.path
   `
 
@@ -371,32 +362,8 @@ func (zr *zettelRepository) History(ctx context.Context) ([]*model.Zettel, error
 	return zettels, nil
 }
 
-func (zr *zettelRepository) ListFleet(ctx context.Context) ([]*model.Zettel, error) {
-	query := `select * from zettel where type = 'fleet' order by updated_at desc`
-
-	zettels := []*model.Zettel{}
-	err := zr.DB.DB.SelectContext(ctx, &zettels, query)
-	if err != nil {
-		return nil, err
-	}
-
-	return zettels, nil
-}
-
-func (zr *zettelRepository) ListPermanent(ctx context.Context) ([]*model.Zettel, error) {
-	query := `select * from zettel where type = 'permanent' order by updated_at desc`
-
-	zettels := []*model.Zettel{}
-	err := zr.DB.DB.SelectContext(ctx, &zettels, query)
-	if err != nil {
-		return nil, err
-	}
-
-	return zettels, nil
-}
-
-func (zr *zettelRepository) ListAll(ctx context.Context) ([]*model.Zettel, error) {
-	query := `select * from zettel where type = 'fleet' or type = 'permanent' order by updated_at desc`
+func (zr *zettelRepository) List(ctx context.Context) ([]*model.Zettel, error) {
+	query := `select * from zettel order by updated_at desc`
 
 	zettels := []*model.Zettel{}
 	err := zr.DB.DB.SelectContext(ctx, &zettels, query)

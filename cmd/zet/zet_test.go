@@ -79,7 +79,7 @@ func TestNewZet(t *testing.T) {
 
 		z1 := createZet(t, zr, "A title one")
 		z2 := createZet(t, zr, "A title two")
-		z3 :=	createZet(t, zr, "A title three")
+		z3 := createZet(t, zr, "A title three")
 
 		assert.Equal(t, InsertHistory(zr, z1), nil, "failed to insert history")
 		assert.Equal(t, InsertHistory(zr, z2), nil, "failed to insert history")
@@ -120,9 +120,6 @@ func cleanup(t *testing.T) {
 	err := zr.Reset(context.Background())
 	require.Equal(t, err, nil, "failed to reset database")
 
-	err = fs.RemoveAll(cfg.FleetRoot)
-	require.Equal(t, err, nil, "failed to remove fleet root")
-
-	err = fs.RemoveAll(cfg.PermanentRoot)
-	require.Equal(t, err, nil, "failed to remove fleet root")
+	err = fs.RemoveAll(cfg.Path)
+	require.Equal(t, err, nil, "failed to remove path")
 }
